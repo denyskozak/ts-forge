@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/forge-llama-hero.png" alt="A friendly llama in graphite and copper armor guarding a local coding workspace" width="100%" />
+  <img src="docs/assets/forge-llama-hero.png" alt="A friendly armored llama guarding a local coding workspace" width="30%" />
 </p>
 
 <h1 align="center">TS Forge</h1>
