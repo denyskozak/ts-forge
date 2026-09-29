@@ -1,0 +1,44 @@
+{
+  "createdAt": "2026-09-29T11:18:32.300Z",
+  "harness": "0.2.0",
+  "model": "qwen2.5:1.5b",
+  "endpoint": "http://127.0.0.1:11434",
+  "platform": "darwin/arm64",
+  "node": "v22.23.1",
+  "settings": {
+    "temperature": 0,
+    "contextTokens": 8192,
+    "maxSteps": 8
+  },
+  "scope": "Two temporary TypeScript fixtures; not a React/Next quality benchmark.",
+  "results": [
+    {
+      "id": "sum-array",
+      "passed": false,
+      "durationMs": 3828,
+      "approvals": 0,
+      "errors": [],
+      "validation": "AssertionError [ERR_ASSERTION]: No edit applied",
+      "toolCalls": [
+        {
+          "name": "replace_text",
+          "error": true
+        }
+      ]
+    },
+    {
+      "id": "nullable-label",
+      "passed": false,
+      "durationMs": 2426,
+      "approvals": 0,
+      "errors": [],
+      "validation": "AssertionError [ERR_ASSERTION]: No edit applied",
+      "toolCalls": [
+        {
+          "name": "read_file",
+          "error": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "createdAt": "2026-09-29T17:04:05.255Z",
+  "model": "qwen2.5:1.5b",
+  "modelDigest": "65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b",
+  "durationMs": 13560,
+  "prompt": "Разберись в проекте и объясни ментальную модель игрового потока: от запуска приложения до экрана, состояния и API. Приведи конкретные пути файлов. Ничего не изменяй.",
+  "criteria": {
+    "usedArchitectureTool": false,
+    "inspectedSource": true,
+    "citedEntrypoint": true,
+    "citedScreen": true,
+    "citedState": true,
+    "citedDataBoundary": true,
+    "toolErrors": 0,
+    "architectureEvidenceLoaded": true,
+    "avoidsRunawayRepetition": true,
+    "avoidsInventedStateUpdate": false
+  },
+  "tools": [],
+  "answer": "Данное предложение требует выполнения нескольких шагов:\n\n1) Ознакомиться с ментальной моделью проекта.\n2) Объяснить порядок выполнения кода от начала до конца.\n\nВот подробный обзор:\n\n### 1. Ментальная модель игрового потока\n\n**Запуск приложения:**\n- Запустите React Native или Expo (если используется).\n- Приложение загружается на устройство.\n- Выполняется `App.tsx` - главная страница приложения.\n\n**Отображение экрана:**\n- Открытие `RootNavigator.tsx`, который содержит компонент `GameScreen`.\n- Внутри `GameScreen.tsx`, вызывается функция `useGameStore` из файла `gameStore.ts`.\n\n**Состояние игры:**\n- Используется состояние `level` через hook `useGameStore`. Это значение может быть установлено сервером посредством API запроса (`loadLevel(level)`).\n\n**API запросы:**\n- Для получения уровня используются методы сервиса `axios` в файле `services/gameApi.ts`.\n\n### Путь файлов:\n1. **src/services/gameApi.ts**: Этот файл содержит функцию для получения уровня, которая использует библиотеку Axios для HTTP запроса.\n   ```typescript\n   import axios from 'axios';\n\n   export async function loadLevel(level:number){ \n       return axios.get('/levels/'+level);\n   }\n   ```\n\n2. **src/store/gameStore.ts**: Здесь происходит создание состояния с помощью Zustand и его использование в компонентах.\n   ```typescript\n   import { create } from 'zustand';\n   \n   const useGameStore = create<{ level: number }>(() => ({\n     level: 1,\n   }));\n   ```\n\n3. **src/screens/GameScreen.tsx**: Компонент `GameScreen` взаимодействует с состоянием через hook `useGameStore`.\n   ```typescript\n   import { useGameStore } from '../store/gameStore';\n\n   export function GameScreen() {\n     const level = useGameStore(s=>s.level);\n\n     return <Button title={'Play '+level} onPress={()=>loadLevel(level)}/>;\n   }\n   ```\n\n4. **src/navigation/RootNavigator.tsx**: Функция RootNavigator вызывает компонент `GameScreen`, который отображает состояние игры.\n   ```typescript\n   import { GameScreen } from '../screens/GameScreen';\n\n   export function RootNavigator(){\n     return <GameScreen/>;\n   }\n   ```\n\n5. **App.tsx**: Главная страница приложения, которая загружается из файла `navigation/RootNavigator.tsx`.\n\n### Конечный результат:\n- Приложение запускается на устройстве.\n- Выполняется функции в файле `App.tsx`.\n- Запрашиваются уровни посредством API запросов из файла `services/gameApi.ts`.\n- Состояние уровня хранится и обновляется через hook `useGameStore` в файле `gameStore.ts`.\n- Компоненты отображают текущее состояние уровня.\n\nЭтот порядок выполнения кода соответствует ментальной модели игрового потока вашего проекта.",
+  "statuses": [
+    "Checking local model",
+    "Analyzing project and refreshing context map",
+    "Reading architecture evidence",
+    "Thinking · step 1/10"
+  ],
+  "scope": "Synthetic React Native fixture. This measures one model/harness run, not general project understanding."
+}

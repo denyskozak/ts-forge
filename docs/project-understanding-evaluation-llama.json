@@ -1,0 +1,28 @@
+{
+  "createdAt": "2026-09-29T17:04:52.603Z",
+  "model": "llama3.1:8b",
+  "modelDigest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+  "durationMs": 46590,
+  "prompt": "Разберись в проекте и объясни ментальную модель игрового потока: от запуска приложения до экрана, состояния и API. Приведи конкретные пути файлов. Ничего не изменяй.",
+  "criteria": {
+    "usedArchitectureTool": false,
+    "inspectedSource": true,
+    "citedEntrypoint": true,
+    "citedScreen": true,
+    "citedState": true,
+    "citedDataBoundary": true,
+    "toolErrors": 0,
+    "architectureEvidenceLoaded": true,
+    "avoidsRunawayRepetition": true,
+    "avoidsInventedStateUpdate": true
+  },
+  "tools": [],
+  "answer": "На основе предоставленной информации я могу описать ментальную модель игрового потока:\n\n**Детектируемая стэк**\n\n* Приложение запущено из файла `App.tsx` (`/src/App.tsx`)\n* В этом файле импортирован компонент `RootNavigator` из `/src/navigation/RootNavigator.tsx`\n* Компонент `RootNavigator` импортирует компонент `GameScreen` из `/src/screens/GameScreen.tsx`\n\n**Подтверждаемый рантайм-флоу**\n\n1. Файл `App.tsx` экспортирует функцию `App`, которая возвращает компонент `RootNavigator`.\n2. Файл `RootNavigator.tsx` экспортирует функцию `RootNavigator`, которая возвращает компонент `GameScreen`.\n3. Файл `GameScreen.tsx` импортирует хук `useGameStore` из `/src/store/gameStore.ts` и функцию `loadLevel` из `/src/services/gameApi.ts`.\n4. Хук `useGameStore` создает состояние с ключом `level`, которое используется для отображения кнопки \"Играть\".\n5. Когда пользователь нажимает на эту кнопку, вызывается функция `loadLevel`, которая отправляет GET-запрос к API по адресу `/levels/<level>`.\n\n**Неизвестные аспекты**\n\n* Как работает API и что оно возвращает в ответ на запрос.\n* Как обрабатываются ошибки или исключения при работе с API.\n\n**Правильные файлы**\n\n* `/src/App.tsx`\n* `/src/navigation/RootNavigator.tsx`\n* `/src/screens/GameScreen.tsx`\n* `/src/store/gameStore.ts`\n* `/src/services/gameApi.ts`\n\nПримечание: В этом описании я не включил файл `package.json`, поскольку он содержит только информацию о зависимостях проекта, а не кода самого проекта.",
+  "statuses": [
+    "Checking local model",
+    "Analyzing project and refreshing context map",
+    "Reading architecture evidence",
+    "Thinking · step 1/10"
+  ],
+  "scope": "Synthetic React Native fixture. This measures one model/harness run, not general project understanding."
+}

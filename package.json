@@ -1,0 +1,88 @@
+{
+  "name": "forge-local",
+  "version": "0.2.0",
+  "private": true,
+  "description": "A local-first TypeScript coding agent",
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "license": "MIT",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build && node scripts/build.mjs",
+    "start": "electron .",
+    "test": "tsx --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "package": "npm run build && electron-builder --dir",
+    "test:desktop": "npm run build && node scripts/smoke.mjs",
+    "format": "prettier --write src electron shared tests scripts vite.config.ts",
+    "eval:local": "tsx scripts/evaluate.mts",
+    "eval:understanding": "tsx scripts/evaluate-understanding.mts",
+    "test:ui": "npm run build && node scripts/ui-performance.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "diff": "^8.0.2",
+    "ignore": "^7.0.10",
+    "lucide-react": "^0.577.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0",
+    "typescript": "5.9.3",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/diff": "^7.0.2",
+    "@types/node": "^22.19.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.0",
+    "electron": "^44.4.5",
+    "electron-builder": "^26.0.12",
+    "prettier": "^3.9.9",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "vite": "^8.3.1"
+  },
+  "build": {
+    "appId": "dev.forge.local",
+    "productName": "Forge",
+    "files": [
+      "dist/**",
+      "dist-electron/**"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dir"
+      ],
+      "icon": "build/icon.png",
+      "identity": null,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Forge uses the microphone only while you dictate a chat draft with on-device speech recognition."
+      }
+    },
+    "directories": {
+      "output": "release/v0.2"
+    },
+    "extraResources": [
+      {
+        "from": "node_modules/typescript",
+        "to": "compiler",
+        "filter": [
+          "bin/**",
+          "lib/**",
+          "package.json",
+          "LICENSE.txt",
+          "ThirdPartyNoticeText.txt"
+        ]
+      }
+    ]
+  },
+  "overrides": {
+    "esbuild": "^0.28.2"
+  },
+  "author": "Forge contributors"
+}

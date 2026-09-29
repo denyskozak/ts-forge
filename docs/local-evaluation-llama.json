@@ -1,0 +1,53 @@
+{
+  "modelDigest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+  "createdAt": "2026-09-29T11:19:59.592Z",
+  "harness": "0.2.0",
+  "model": "llama3.1:8b",
+  "endpoint": "http://127.0.0.1:11434",
+  "platform": "darwin/arm64",
+  "node": "v22.23.1",
+  "settings": {
+    "temperature": 0,
+    "contextTokens": 8192,
+    "maxSteps": 8
+  },
+  "scope": "Two temporary TypeScript fixtures; not a React/Next quality benchmark.",
+  "results": [
+    {
+      "id": "sum-array",
+      "passed": false,
+      "durationMs": 29447,
+      "approvals": 0,
+      "errors": [],
+      "validation": "AssertionError [ERR_ASSERTION]: No edit applied",
+      "toolCalls": [
+        {
+          "name": "replace_text",
+          "error": true
+        },
+        {
+          "name": "read_file",
+          "error": false
+        },
+        {
+          "name": "replace_text",
+          "error": true
+        }
+      ]
+    },
+    {
+      "id": "nullable-label",
+      "passed": false,
+      "durationMs": 18764,
+      "approvals": 0,
+      "errors": [],
+      "validation": "AssertionError [ERR_ASSERTION]: No edit applied",
+      "toolCalls": [
+        {
+          "name": "replace_text",
+          "error": true
+        }
+      ]
+    }
+  ]
+}

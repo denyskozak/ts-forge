@@ -1,0 +1,107 @@
+{
+  "modelDigest": "65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b",
+  "createdAt": "2026-09-29T11:22:46.045Z",
+  "harness": "0.2.0",
+  "model": "qwen2.5:1.5b",
+  "endpoint": "http://127.0.0.1:11434",
+  "platform": "darwin/arm64",
+  "node": "v22.23.1",
+  "settings": {
+    "temperature": 0,
+    "contextTokens": 8192,
+    "maxSteps": 8
+  },
+  "scope": "Two temporary TypeScript fixtures; not a React/Next quality benchmark.",
+  "results": [
+    {
+      "id": "sum-array",
+      "passed": false,
+      "durationMs": 28660,
+      "approvals": 0,
+      "errors": [],
+      "validation": "AssertionError [ERR_ASSERTION]: No edit applied",
+      "toolCalls": [
+        {
+          "name": "replace_text",
+          "error": true,
+          "detail": "Tool error: Read this version of the file first. Hash mismatch."
+        }
+      ],
+      "transcript": [
+        {
+          "role": "user",
+          "content": "Fix sum in task.ts: return the sum of the numbers, including zero for an empty array. Preserve the function signature. Apply the change."
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "toolCalls": [
+            {
+              "function": {
+                "name": "replace_text",
+                "arguments": {
+                  "oldText": "return 0",
+                  "newText": "return 0 || 1",
+                  "path": "task.ts"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "content": "Tool error: Read this version of the file first. Hash mismatch."
+        },
+        {
+          "role": "assistant",
+          "content": "I encountered an issue while trying to make the change. The read_file function returned a hash that didn't match the one I provided. This indicates that the file has been modified since the last time it was read. To fix this, I need to read the file again to ensure the correct hash is used. Please run the read_file function on the 'task.ts' file and provide the hash so I can proceed with the replacement."
+        }
+      ]
+    },
+    {
+      "id": "nullable-label",
+      "passed": false,
+      "durationMs": 2565,
+      "approvals": 0,
+      "errors": [],
+      "validation": "AssertionError [ERR_ASSERTION]: No edit applied",
+      "toolCalls": [
+        {
+          "name": "read_file",
+          "error": true,
+          "detail": "Tool error: Use a relative workspace path."
+        }
+      ],
+      "transcript": [
+        {
+          "role": "user",
+          "content": "Fix label in task.ts: null returns an empty string, strings are trimmed. Preserve the function signature. Apply the change."
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "toolCalls": [
+            {
+              "function": {
+                "name": "read_file",
+                "arguments": {
+                  "path": "/path/to/task.ts",
+                  "offset": 0,
+                  "limit": 1000
+                }
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "content": "Tool error: Use a relative workspace path."
+        },
+        {
+          "role": "assistant",
+          "content": "The error message indicates that the path provided is relative to the root of the repository, not the workspace. To fix this, ensure that the path is relative to the workspace root. For example, if your project is located at `/Users/username/Documents/myproject`, the path should be `/myproject/task.ts`."
+        }
+      ]
+    }
+  ]
+}

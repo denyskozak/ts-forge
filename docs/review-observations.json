@@ -1,0 +1,25 @@
+{
+  "createdAt": "2026-09-29T11:48:12.174Z",
+  "scope": "Synthetic probes; no user files, model inference or production state were modified.",
+  "observations": [
+    {
+      "id": "R01",
+      "confirmed": true,
+      "result": "A stale waiting snapshot delivered after done makes the reducer busy and restores an obsolete approval."
+    },
+    {
+      "id": "R02",
+      "confirmed": true,
+      "result": "A TypeScript source containing TS2322 is transpiled into executable JS; the evaluator has no separate typecheck.",
+      "diagnosticCodes": [
+        2322
+      ]
+    },
+    {
+      "id": "R03",
+      "confirmed": true,
+      "result": "101 source references yield 80 matches with no completeness flag.",
+      "returned": 80
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "staleWriter": {
+    "previousExampleCount": 1,
+    "afterSecondWriter": 0
+  },
+  "invalidState": {
+    "acceptedSessions": null
+  },
+  "ignorePolicy": {
+    "ignoredFixtureListed": true,
+    "ignoredFixtureReadable": true
+  },
+  "truncatedRead": {
+    "originalCharacters": 30043,
+    "modelVisibleCharacters": 24000,
+    "tailVisible": false,
+    "fullReplacementOffered": true,
+    "tailInProposal": false,
+    "writeDeclined": true
+  },
+  "providerLimit": {
+    "claimedLimit": 1000000,
+    "acceptedToolArgumentCharacters": 1100000
+  },
+  "toolBatch": {
+    "requested": 9,
+    "resultsReturned": 8
+  }
+}
