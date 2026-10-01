@@ -358,6 +358,10 @@ try {
     'completed_unverified',
   );
   await page.getByRole('button', { name: 'Skills', exact: true }).click();
+  await page.getByRole('button', { name: 'Toggle React Three Fiber' }).click();
+  assert.ok(
+    (await page.evaluate(() => window.forge.state())).settings.skills.includes('react-three'),
+  );
   await page.getByRole('button', { name: 'Toggle Next.js' }).click();
   assert.ok((await page.evaluate(() => window.forge.state())).settings.skills.includes('next'));
   await page.getByRole('button', { name: 'Training lab LAB' }).click();

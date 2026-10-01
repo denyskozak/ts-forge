@@ -7,3 +7,5 @@ release/
 .env*
 
 .idea/
+
+.forge-test-results/

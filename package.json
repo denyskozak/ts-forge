@@ -18,7 +18,9 @@
     "format": "prettier --write src electron shared tests scripts vite.config.ts",
     "eval:local": "tsx scripts/evaluate.mts",
     "eval:understanding": "tsx scripts/evaluate-understanding.mts",
-    "test:ui": "npm run build && node scripts/ui-performance.mjs"
+    "test:ui": "npm run build && node scripts/ui-performance.mjs",
+    "test:e2e": "tsx scripts/live-e2e.mts",
+    "typecheck:e2e": "tsc --noEmit -p tsconfig.e2e.json"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",

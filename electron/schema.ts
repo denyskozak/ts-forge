@@ -5,7 +5,7 @@ import { localEndpoint } from './provider';
 export const settingsSchema = z.object({
   endpoint: z.string().transform(localEndpoint),
   model: z.string().max(200),
-  skills: z.array(z.enum(['typescript', 'react', 'react-native', 'next'])),
+  skills: z.array(z.enum(['typescript', 'react', 'react-native', 'next', 'react-three'])),
   temperature: z.number().min(0).max(1),
   maxSteps: z.number().int().min(1).max(30),
   contextTokens: z.number().int().min(4096).max(65536).default(16384),

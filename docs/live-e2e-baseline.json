@@ -1,0 +1,59 @@
+{
+  "createdAt": "2026-10-01T08:26:15.080Z",
+  "scope": "Real Electron + local Ollama, source-only Forge copy, R3F inspection fixture, and isolated TypeScript edit. Citation checks are not a complete semantic evaluation; no GPU scene was rendered.",
+  "model": {
+    "name": "llama3.1:8b",
+    "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+    "size": 4920753328,
+    "family": "llama",
+    "parameters": "8.0B",
+    "quantization": "Q4_K_M",
+    "supportsTools": true
+  },
+  "settings": {
+    "contextTokens": 32768,
+    "scenarioTimeout": 240000,
+    "maxSteps": 8,
+    "temperature": 0
+  },
+  "status": "failed",
+  "passed": 2,
+  "total": 4,
+  "deterministicValidation": {
+    "testsPassed": 69,
+    "typecheck": "passed",
+    "e2eRunnerTypecheck": "passed",
+    "electronSmoke": "passed",
+    "offlineOptionalExit": 0,
+    "offlineRequiredExit": 1
+  },
+  "cases": [
+    {
+      "id": "live-connection",
+      "passed": true
+    },
+    {
+      "id": "forge-understanding",
+      "passed": true,
+      "durationMs": 220867
+    },
+    {
+      "id": "r3f-scene-tool",
+      "passed": false,
+      "durationMs": 47333
+    },
+    {
+      "id": "edit-validate-undo",
+      "passed": false,
+      "durationMs": 58673,
+      "undoRestored": true
+    }
+  ],
+  "findings": [
+    "Connection test and the Forge architecture citation scenario passed.",
+    "Duplicate architecture-selection metadata was removed from the harness prompt after context exhaustion was reproduced. Explicit source paths now take priority.",
+    "The R3F scenario failed because the model printed tool-call examples instead of executing inspect_scene.",
+    "The edit scenario failed because the model produced invalid TypeScript (TS1109); the real compiler and independent compiler both rejected it. Persisted evidence and guarded undo restored the original fixture.",
+    "The live command returns exit code 1 for these failures. No retries or weakened assertions turn them into passes."
+  ]
+}

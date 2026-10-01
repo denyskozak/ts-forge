@@ -1,3 +1,4 @@
+import { inspectScene } from './react-three';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { z } from 'zod';
@@ -56,6 +57,11 @@ const schemas = {
     offset: z.number().int().min(0).default(0),
   }),
   find_symbol: z.object({ query: z.string().min(1).max(100) }),
+  inspect_scene: z.object({
+    query: z.string().max(200).default(''),
+    offset: z.number().int().min(0).default(0),
+    limit: z.number().int().min(1).max(100).default(60),
+  }),
   project_mental_model: z.object({}),
   typescript_project_analysis: z.object({}),
   inspect_feature: z.object({ query: z.string().min(2).max(200) }),
@@ -119,6 +125,8 @@ const descriptions: Record<keyof typeof schemas, string> = {
     'Read the beginnings of up to 8 related text files in one call. Each result includes hash, total, truncated and nextOffset. Useful after project_mental_model or inspect_feature.',
   search_code: 'Literal code search. Paginated matches; inspect completeness.',
   find_symbol: 'Search the project symbol map for definitions with file and line.',
+  inspect_scene:
+    'Inspect React Three Fiber source evidence: Canvas roots, lexical JSX hierarchy, frame loops, assets, physics, postprocessing, input and review hints. Paginated and read-only. Follow file/line evidence with read_file. Does not execute WebGL.',
   project_mental_model:
     'Return the detected React/React Native/Next architecture: frameworks, entrypoints, routes/screens, state, navigation, data boundaries and layers. Use this first when asked to understand a project.',
   typescript_project_analysis:
@@ -320,6 +328,13 @@ export class Agent {
       this.emit({ type: 'map', map });
       const effectiveSkills = new Set(settings.skills);
       if (
+        map.mentalModel.scene ||
+        map.mentalModel.frameworks.some((framework) => framework.name === 'React Three Fiber')
+      ) {
+        effectiveSkills.add('react-three');
+        effectiveSkills.add('react');
+      }
+      if (
         map.mentalModel.frameworks.some((framework) =>
           ['React Native', 'Expo', 'Expo Router'].includes(framework.name),
         )
@@ -356,7 +371,12 @@ export class Agent {
           }
         }
         architectureEvidence = `\n<untrusted_architecture_evidence>\n${JSON.stringify({
-          selection: inspectMentalModel(map.mentalModel, map.entries, prompt, map.complete),
+          selection: {
+            files: selected,
+            projectScanComplete: map.complete,
+            selectionComplete: selected.length === map.entries.length,
+            note: 'Selected source excerpts only. Use inspect_feature for additional relationships; the project map and mental model are supplied separately.',
+          },
           sources: evidence,
         })}\n</untrusted_architecture_evidence>${
           readOnlyProjectUnderstanding
@@ -471,6 +491,12 @@ export class Agent {
                     description: selected.description,
                   })
                 : 'Question cancelled because the run was stopped.';
+            } else if (name === 'inspect_scene') {
+              const { query, offset, limit } = schemas.inspect_scene.parse(call.function.arguments);
+              const current = await analyzeProject(root, this.store, settings, signal);
+              result = JSON.stringify(
+                inspectScene(current.entries, query, offset, limit, current.complete),
+              );
             } else if (name === 'project_mental_model') {
               schemas.project_mental_model.parse(call.function.arguments);
               result = JSON.stringify({

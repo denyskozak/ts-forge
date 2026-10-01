@@ -40,6 +40,7 @@ export function renderMap(
             (item) => `${item.name}${item.version ? `@${item.version}` : ''}`,
           ) ?? [],
         platforms: map.mentalModel?.platforms ?? [],
+        sceneRoots: map.mentalModel?.scene?.canvases.slice(0, 5) ?? [],
         entrypoints: map.mentalModel?.entrypoints?.slice(0, 10) ?? [],
         routes: map.mentalModel?.routes?.length ?? 0,
         layers:
@@ -57,7 +58,7 @@ export function renderMap(
           roles: e.roles ?? [],
         })),
       });
-    const title = `Project map: ${header.shown}/${header.indexed} indexed files (${header.files} discovered); scan ${header.scanComplete ? 'complete' : 'PARTIAL'}. Frameworks: ${header.architecture.frameworks.join(', ') || 'unknown'}. Entrypoints: ${header.architecture.entrypoints.join(', ') || 'unknown'}. Layers: ${header.architecture.layers.join(', ') || 'unknown'}. ${header.note}\n`;
+    const title = `Project map: ${header.shown}/${header.indexed} indexed files (${header.files} discovered); scan ${header.scanComplete ? 'complete' : 'PARTIAL'}. Frameworks: ${header.architecture.frameworks.join(', ') || 'unknown'}. Entrypoints: ${header.architecture.entrypoints.join(', ') || 'unknown'}.${header.architecture.sceneRoots.length ? ` Scene roots: ${header.architecture.sceneRoots.join(', ')}; use inspect_scene.` : ''} Layers: ${header.architecture.layers.join(', ') || 'unknown'}. ${header.note}\n`;
     if (map.format === 'markdown')
       return (
         title +

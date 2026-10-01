@@ -1,3 +1,4 @@
+import { describeScene } from './react-three';
 import { renderMap } from '../shared/project-map';
 export { renderMap } from '../shared/project-map';
 import path from 'node:path';
@@ -11,7 +12,7 @@ import { analyzeTypeScriptProject } from './typescript-project-analysis';
 export function describeSource(
   filename: string,
   source: string,
-): Pick<ProjectEntry, 'symbols' | 'imports' | 'exports' | 'roles'> {
+): Pick<ProjectEntry, 'symbols' | 'imports' | 'exports' | 'roles' | 'scene'> {
   const file = ts.createSourceFile(filename, source, ts.ScriptTarget.Latest, true),
     symbols: ProjectEntry['symbols'] = [],
     imports: string[] = [],
@@ -50,6 +51,7 @@ export function describeSource(
   }
   visit(file);
   return {
+    scene: describeScene(file),
     symbols,
     imports: [...new Set(imports)].slice(0, 40),
     exports: [...new Set(exports)].slice(0, 80),
@@ -162,7 +164,10 @@ export async function analyzeProject(
         | undefined;
       if (path.basename(filename) === 'package.json') packageJson = mergePackageManifest(source);
       if (/^(?:.*\/)?tsconfig(?:\.[^/]+)?\.json$/.test(filename)) configSources[filename] = source;
-      if (old.get(filename)?.hash === digest) {
+      if (
+        old.get(filename)?.hash === digest &&
+        (!/\.[cm]?[jt]sx?$/.test(filename) || old.get(filename)?.scene?.version === 1)
+      ) {
         const cached = old.get(filename)!;
         entries.push({
           ...cached,
@@ -187,6 +192,11 @@ export async function analyzeProject(
           })
             .filter(([key]) =>
               [
+                'three',
+                '@react-three/fiber',
+                '@react-three/drei',
+                '@react-three/rapier',
+                '@react-three/postprocessing',
                 'typescript',
                 'react',
                 'react-native',

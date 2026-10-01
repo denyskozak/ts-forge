@@ -103,6 +103,38 @@ export function buildMentalModel(
   addFramework('Expo Router', 'expo-router', ['app/ file routes']);
   addFramework('Next.js', 'next', ['app/ or pages/ routes']);
   addFramework('Vite', 'vite');
+  for (const [name, pkg] of [
+    ['React Three Fiber', '@react-three/fiber'],
+    ['Three.js', 'three'],
+    ['Drei', '@react-three/drei'],
+    ['Rapier', '@react-three/rapier'],
+    ['React Postprocessing', '@react-three/postprocessing'],
+  ])
+    addFramework(name, pkg);
+  const sceneFiles = entries.filter((entry) => entry.scene?.evidence.length);
+  const scene =
+    sceneFiles.length || packages['@react-three/fiber']
+      ? {
+          files: sceneFiles.map((entry) => entry.path).slice(0, 40),
+          canvases: sceneFiles
+            .filter((entry) => entry.scene?.evidence.some((item) => item.kind === 'canvas'))
+            .map((entry) => entry.path)
+            .slice(0, 20),
+          frameFiles: sceneFiles
+            .filter((entry) => entry.scene?.evidence.some((item) => item.kind === 'frame'))
+            .map((entry) => entry.path)
+            .slice(0, 20),
+          assetFiles: sceneFiles
+            .filter((entry) => entry.scene?.evidence.some((item) => item.kind === 'asset'))
+            .map((entry) => entry.path)
+            .slice(0, 20),
+          reviewHints: sceneFiles.reduce(
+            (count, entry) =>
+              count + (entry.scene?.evidence.filter((item) => item.kind === 'review').length ?? 0),
+            0,
+          ),
+        }
+      : undefined;
 
   const packageManager = allFiles.includes('pnpm-lock.yaml')
     ? 'pnpm'
@@ -240,6 +272,7 @@ export function buildMentalModel(
   ];
   return {
     frameworks,
+    scene,
     packageManager,
     scripts: Object.keys(manifest.scripts ?? {}).slice(0, 40),
     platforms,
@@ -257,6 +290,7 @@ export function buildMentalModel(
 export function summarizeMentalModel(model: ProjectMentalModel) {
   return {
     frameworks: model.frameworks,
+    scene: model.scene,
     packageManager: model.packageManager,
     scripts: model.scripts,
     platforms: model.platforms,
@@ -351,7 +385,11 @@ export function selectUnderstandingFiles(
     if (known.has(filename) && !selected.includes(filename) && selected.length < limit)
       selected.push(filename);
   };
-  model.entrypoints.forEach(add);
+  // Explicitly requested paths take priority over broad entrypoint traversal.
+  entries.filter((entry) => query.includes(entry.path)).forEach((entry) => add(entry.path));
+  model.entrypoints.slice(0, model.scene ? 2 : limit).forEach(add);
+  model.scene?.canvases.forEach(add);
+  model.scene?.frameFiles.slice(0, 2).forEach(add);
   // Start with the real boot path so the evidence is ordered like runtime execution.
   for (let cursor = 0; cursor < selected.length && selected.length < limit; cursor++)
     model.relationships

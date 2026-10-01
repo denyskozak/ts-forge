@@ -1,6 +1,8 @@
+import type { SceneSource } from './react-three';
+import { REACT_THREE_INSTRUCTIONS } from './react-three';
 import type { TaskRecord, ChangeSet, ImpactReport } from './task';
 export type Page = 'agent' | 'models' | 'skills' | 'training' | 'settings';
-export type SkillId = 'typescript' | 'react' | 'react-native' | 'next';
+export type SkillId = 'typescript' | 'react' | 'react-native' | 'next' | 'react-three';
 export interface Settings {
   endpoint: string;
   model: string;
@@ -176,10 +178,18 @@ export interface ProjectEntry {
   imports: string[];
   exports?: string[];
   roles?: ProjectFileRole[];
+  scene?: SceneSource;
 }
 export type ProjectFileRole =
   'entrypoint' | 'route' | 'screen' | 'component' | 'hook' | 'state' | 'api' | 'test' | 'config';
 export interface ProjectMentalModel {
+  scene?: {
+    files: string[];
+    canvases: string[];
+    frameFiles: string[];
+    assetFiles: string[];
+    reviewHints: number;
+  };
   frameworks: { name: string; version?: string; evidence: string[] }[];
   packageManager?: string;
   scripts: string[];
@@ -297,6 +307,13 @@ export const SKILLS: {
     tags: ['Expo', 'Navigation', 'Native modules'],
     instructions:
       'For React Native: first inspect the project mental model, app entry, navigation tree, screen folders, state providers, API clients and platform-specific files. Detect Expo, Expo Router, React Navigation and bare React Native from installed dependencies and config; never assume one. Trace a user flow from navigator or file route to screen, hooks/state, services and native capabilities. Preserve platform behavior, safe areas, permissions, accessibility labels, list performance and cleanup of listeners. Check iOS/Android variants and never add a native dependency without explaining the native build impact.',
+  },
+  {
+    id: 'react-three',
+    name: 'React Three Fiber',
+    description: 'Scenes, frame loops, assets and physics with source evidence.',
+    tags: ['Three.js', 'Drei', 'Rapier'],
+    instructions: REACT_THREE_INSTRUCTIONS,
   },
   {
     id: 'next',

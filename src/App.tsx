@@ -59,7 +59,15 @@ const NAV = [
   { id: 'training', label: 'Training lab', icon: FlaskConical },
 ] as const;
 const skillGlyph = (id: (typeof SKILLS)[number]['id']) =>
-  id === 'typescript' ? 'TS' : id === 'react' ? '✳' : id === 'react-native' ? 'RN' : 'N';
+  id === 'typescript'
+    ? 'TS'
+    : id === 'react'
+      ? '✳'
+      : id === 'react-native'
+        ? 'RN'
+        : id === 'react-three'
+          ? '3D'
+          : 'N';
 const initial: AppState = {
   settings: DEFAULT_SETTINGS,
   workspace: null,
@@ -1015,6 +1023,15 @@ export default function App() {
                           {state.workspace.map.mentalModel.routes.length} routes ·{' '}
                           {state.workspace.map.mentalModel.relationships.length} import links
                         </span>
+                        {state.workspace.map.mentalModel.scene && (
+                          <p>
+                            3D scene: {state.workspace.map.mentalModel.scene.canvases.length} Canvas
+                            files · {state.workspace.map.mentalModel.scene.frameFiles.length}{' '}
+                            frame-loop files ·{' '}
+                            {state.workspace.map.mentalModel.scene.assetFiles.length} asset-loader
+                            files
+                          </p>
+                        )}
                         <p>{state.workspace.map.formatSource}</p>
                         <span>
                           ~{state.workspace.map.estimatedTokens.toLocaleString()} tokens · estimate

@@ -83,6 +83,23 @@ For React and Next.js projects it identifies entrypoints, routes, components, ho
 
 The index is bounded and reports when a scan is incomplete. Source text is loaded only through explicit read tools or a small task-relevant architecture slice.
 
+## React Three Fiber specialization
+
+Forge detects `@react-three/fiber`, Three.js, Drei, Rapier and React Postprocessing from workspace manifests and source imports. The React Three Fiber skill activates for detected scenes during a run, and can also be selected in **Skills**. Automatic activation does not change your saved preferences.
+
+The read-only `inspect_scene` tool returns paginated source evidence with file names and line numbers:
+
+- Canvas roots, configuration props and lexical JSX parent/child relationships;
+- frame subscriptions and their priority arguments;
+- asset loader/preload calls, physics components, effects and pointer handlers;
+- review hints for possible state updates or object allocations inside inline frame callbacks.
+
+For example: “Add keyboard movement to the player; preserve the existing physics controller and camera. Inspect the scene first, then propose a grouped change with validation criteria.” The skill guides the model through scene ownership, installed API versions, frame updates, resource lifetimes, controls, native/client boundaries and visual acceptance criteria. The compact project map includes scene roots, and general project-understanding requests prioritize those files.
+
+This is static evidence, not a runtime scene graph or GPU profiler. Each file is capped at 160 evidence items with explicit truncation; local shadowing, re-exports, custom wrappers, indirect callbacks and dynamic assets need additional reading. Review hints are hypotheses. No models, textures or shaders are downloaded or executed by the analyzer. TypeScript and existing tests remain available through validation recipes; rendering, device performance and physics behavior still require a real scene check.
+
+The built-in guidance draws on the official R3F documentation for [hooks](https://r3f.docs.pmnd.rs/api/hooks), [performance pitfalls](https://r3f.docs.pmnd.rs/advanced/pitfalls), [resource ownership](https://r3f.docs.pmnd.rs/api/objects), and [on-demand rendering](https://r3f.docs.pmnd.rs/advanced/scaling-performance). Forge does not fetch these pages during local analysis.
+
 ## Task contracts, grouped changes, and evidence
 
 Each run starts with a persisted task contract. The agent can refine its goal, constraints, out-of-scope work, acceptance criteria, and required checks through `plan_task`. The original user request remains an acceptance criterion.
@@ -139,6 +156,7 @@ npm run typecheck       # TypeScript validation
 npm test                # Harness, persistence, security, map, tools, and state tests
 npm run build           # Production renderer and Electron bundles
 npm run test:desktop    # Real Electron UI and IPC smoke test
+npm run test:e2e        # Real Electron + local Ollama; checks availability first
 npm run test:ui         # UI stress fixture
 npm run package         # Unsigned macOS app bundle
 ```
@@ -151,6 +169,30 @@ npm run eval:understanding
 ```
 
 Desktop tests create temporary workspaces and local fixture servers. The smoke test exercises voice input, settings, multiple workspaces, automatic analysis, clarification recovery after renderer reload, reviewed changes, TypeScript checks, undo, skills, and training data.
+
+### Live local-model E2E
+
+`npm run test:e2e` checks the loopback Ollama endpoint before building or launching Electron. If the connection is refused, it reports **SKIP** and exits successfully; `FORGE_E2E_REQUIRED=1` makes that a failure for a dedicated test machine. A running server with a missing/incompatible model, server errors, timeouts and failed assertions are failures, never skips. No models or dependencies are downloaded and Ollama is not started automatically.
+
+The suite chooses the largest installed local tool-capable model by default. Override it explicitly:
+
+```sh
+FORGE_E2E_MODEL=llama3.1:8b npm run test:e2e
+FORGE_E2E_REQUIRED=1 FORGE_E2E_TIMEOUT_MS=300000 npm run test:e2e
+```
+
+`FORGE_E2E_ENDPOINT` can select another HTTP loopback endpoint. The per-scenario timeout defaults to 240 seconds. `FORGE_E2E_CONTEXT_TOKENS` defaults to 32768 to accommodate Forge’s own source map and architecture evidence; choose a value supported by your model and memory. Execution currently requires macOS.
+
+Four scenarios use real inference through Electron and the production harness:
+
+1. Test connection in Settings, including actual generation.
+2. Explain a source-only temporary copy of Forge and cite its renderer/preload/main/agent boundaries; verify that files remain unchanged. Citation assertions are a basic grounding check, not a full semantic grading of the explanation.
+3. Use `inspect_scene` and read a small R3F fixture; require Canvas, frame and asset evidence. Dependencies are manifest-only: this checks project understanding, not GPU rendering.
+4. Fix a small TypeScript function through the visible approval UI, require the agent's compiler validation, independently compile and test behavior in a sandbox, reload persisted evidence, then undo the changes.
+
+Only the native folder picker is stubbed. Inference is real. Automatic approval is restricted to the disposable edit fixture and its single allowed source file. Independent behavioral assertions live outside the editable project. The suite uses separate Electron data and never opens the working repository for model edits. It does not confirm acceptance criteria on your behalf.
+
+Reports, model identity/digest, Git revision, session evidence, screenshots and Playwright traces are written under `.forge-test-results/<timestamp>/` (Git-ignored); temporary workspaces are removed. Model behavior is nondeterministic, so a failure may identify either a harness bug or a capability limitation. Keep the deterministic `npm test` and `npm run test:desktop` checks alongside this suite. The [recorded live baseline](docs/live-e2e-baseline.json) passed 2/4 cases on `llama3.1:8b`: connection and Forge understanding passed; scene tool use and code correctness failed. The suite intentionally reports those capability failures.
 
 ## Harness architecture
 
