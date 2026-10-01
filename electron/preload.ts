@@ -7,6 +7,11 @@ const api: ForgeAPI = {
   testConnection: (endpoint, model) => ipcRenderer.invoke('test-connection', endpoint, model),
   analyzeProject: () => ipcRenderer.invoke('analyze-project'),
   undoChange: (id) => ipcRenderer.invoke('undo-change', id),
+  undoChangeSet: (id) => ipcRenderer.invoke('undo-changeset', id),
+  acceptCriterion: (sessionId, criterionId) =>
+    ipcRenderer.invoke('accept-criterion', sessionId, criterionId),
+  analyzeImpact: (paths) => ipcRenderer.invoke('analyze-impact', paths),
+  validateTask: (id, index) => ipcRenderer.invoke('validate-task', id, index),
   captureExample: (sessionId, messageId) =>
     ipcRenderer.invoke('capture-example', sessionId, messageId),
   deleteSession: (id) => ipcRenderer.invoke('delete-session', id),

@@ -37,6 +37,7 @@ import { Mark, Badge, Button, PageHeader, Modal } from './components/ui';
 import { MessageHistory } from './components/MessageHistory';
 import { Diff } from './components/Diff';
 import { VoiceInput } from './components/VoiceInput';
+import { TaskPanel, ChangeSetSummary } from './components/TaskPanel';
 import Training from './TrainingPage';
 import { useAgentEvents } from './hooks/useAgentEvents';
 import { initialRunView, runViewReducer } from './state/run-view';
@@ -76,7 +77,18 @@ export default function App() {
   const [modelError, setModelError] = useState(''),
     [toast, setToast] = useState('');
   const [runView, dispatchRun] = useReducer(runViewReducer, initialRunView);
-  const { messages, sessionId, busy, status, stream, approval, clarification, changes } = runView;
+  const {
+    messages,
+    sessionId,
+    busy,
+    status,
+    stream,
+    approval,
+    clarification,
+    changes,
+    task,
+    changeSets,
+  } = runView;
   const [prompt, setPrompt] = useState('');
   const [rightOpen, setRightOpen] = useState(true);
   const [rightTab, setRightTab] = useState<'context' | 'changes'>('context'),
@@ -132,6 +144,14 @@ export default function App() {
             ? { ...old.workspace, map: event.map }
             : old.workspace,
       }));
+    if (event.type === 'task') {
+      setState((old) => ({
+        ...old,
+        sessions: old.sessions.map((session) =>
+          session.task?.runId === event.task.runId ? { ...session, task: event.task } : session,
+        ),
+      }));
+    }
     if (event.type === 'approval') {
       setRightOpen(true);
       setRightTab('changes');
@@ -579,6 +599,9 @@ export default function App() {
                   )}
                 </div>
                 <div className="composer-area">
+                  {task && (
+                    <TaskPanel task={task} sessionId={sessionId} busy={busy} onError={notify} />
+                  )}
                   {clarification && (
                     <div className="clarification-card" role="group" aria-label="Forge question">
                       <div className="clarification-heading">
@@ -614,7 +637,11 @@ export default function App() {
                       </div>
                       <button onClick={() => approve(false)}>Decline</button>
                       <button className="approve-button" onClick={() => approve(true)}>
-                        {approval.kind === 'write' ? 'Apply change' : 'Run check'}
+                        {approval.kind === 'write'
+                          ? 'Apply change'
+                          : approval.kind === 'changeset'
+                            ? 'Apply changeset'
+                            : 'Run check'}
                         <Check size={14} />
                       </button>
                     </div>
@@ -1163,6 +1190,15 @@ export default function App() {
                 </>
               ) : (
                 <div className="changes-list">
+                  {changeSets?.map((set) => (
+                    <ChangeSetSummary
+                      key={set.id}
+                      set={set}
+                      busy={busy}
+                      onRead={readFile}
+                      onError={notify}
+                    />
+                  ))}
                   {changes.length ? (
                     changes.map((change) => (
                       <div className="change-card" key={change.id}>
@@ -1181,22 +1217,25 @@ export default function App() {
                         >
                           {change.status}
                         </Badge>
-                        {change.status === 'applied' && (
-                          <button
-                            className="text-button"
-                            disabled={busy}
-                            onClick={async () => {
-                              try {
-                                await api.undoChange(change.id);
-                              } catch (error) {
-                                notify(error);
-                              }
-                            }}
-                          >
-                            <RotateCcw size={12} />
-                            Undo change
-                          </button>
-                        )}
+                        {change.status === 'applied' &&
+                          (!change.changeSetId ||
+                            (changeSets?.find((set) => set.id === change.changeSetId)?.changeIds
+                              .length ?? 1) === 1) && (
+                            <button
+                              className="text-button"
+                              disabled={busy}
+                              onClick={async () => {
+                                try {
+                                  await api.undoChange(change.id);
+                                } catch (error) {
+                                  notify(error);
+                                }
+                              }}
+                            >
+                              <RotateCcw size={12} />
+                              Undo change
+                            </button>
+                          )}
                         <Diff before={change.before} after={change.after} />
                       </div>
                     ))

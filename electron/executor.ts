@@ -49,7 +49,7 @@ export async function sandboxCommand(
     (deny file-read-data (regex #"(^|/)(\\.env([^/]*)?|\\.npmrc|id_rsa|id_ed25519|credentials[^/]*|secrets?[^/]*)(/|$)") (regex #"\\.(pem|key|p12|pfx)$"))`;
   return { executable: '/usr/bin/sandbox-exec', args: ['-p', profile, executable, ...args] };
 }
-export async function execute(
+export async function executeResult(
   executable: string,
   args: string[],
   root: string,
@@ -60,7 +60,14 @@ export async function execute(
   deniedPaths: string[] = [],
 ) {
   const command = await sandboxCommand(executable, args, readPaths, writePaths, deniedPaths);
-  return new Promise<string>((resolve, reject) => {
+  signal.throwIfAborted();
+  return new Promise<{
+    exitCode: number | null;
+    signal: string | null;
+    output: string;
+    timedOut: boolean;
+    cancelled: boolean;
+  }>((resolve, reject) => {
     const child = spawn(command.executable, command.args, {
       cwd: root,
       detached: true,
@@ -68,6 +75,7 @@ export async function execute(
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let output = '';
+    let timedOut = false;
     const append = (chunk: Buffer) => {
       output = (output + chunk.toString()).slice(-24000);
     };
@@ -76,12 +84,30 @@ export async function execute(
     const stop = () => terminate(child);
     signal.addEventListener('abort', stop, { once: true });
     if (signal.aborted) stop();
-    const timer = setTimeout(stop, 90000);
-    child.on('error', reject);
+    const timer = setTimeout(() => {
+      timedOut = true;
+      stop();
+    }, 90000);
+    child.on('error', (error) => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', stop);
+      reject(error);
+    });
     child.on('close', (code, sig) => {
       clearTimeout(timer);
       signal.removeEventListener('abort', stop);
-      resolve(`Exit code: ${code}; signal: ${sig ?? 'none'}\n${output || 'No diagnostics.'}`);
+      resolve({
+        exitCode: code,
+        signal: sig,
+        output: output || 'No diagnostics.',
+        timedOut,
+        cancelled: signal.aborted,
+      });
     });
   });
+}
+
+export async function execute(...args: Parameters<typeof executeResult>) {
+  const result = await executeResult(...args);
+  return `Exit code: ${result.exitCode}; signal: ${result.signal ?? 'none'}\n${result.output}`;
 }

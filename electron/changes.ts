@@ -1,4 +1,5 @@
 import { promises as fs } from 'node:fs';
+import { rollbackChangeSet, undoChangeSet } from './change-sets';
 import { randomUUID } from 'node:crypto';
 import type { Change } from '../shared/types';
 import type { Store } from './store';
@@ -25,6 +26,10 @@ export async function undoChange(store: Store, id: string) {
   const change = store.value.sessions.flatMap((s) => s.changes ?? []).find((c) => c.id === id);
   if (!change?.workspace || change.status !== 'applied')
     throw new Error('Only an applied change can be undone.');
+  if (change.changeSetId) {
+    await undoChangeSet(store, change.changeSetId);
+    return change;
+  }
   store.journal('undo-intent', { id, change }, randomUUID());
   change.status = 'undoing';
   await store.save();
@@ -60,6 +65,21 @@ export async function recoverInterrupted(store: Store) {
       time: Date.now(),
       runId: run.id,
     });
+  }
+  for (const session of store.value.sessions) {
+    for (const set of session.changeSets ?? []) {
+      if (['applying', 'rolling_back'].includes(set.status)) {
+        await rollbackChangeSet(store, set);
+        dirty = true;
+      } else if (set.status === 'pending') {
+        set.status = 'rejected';
+        dirty = true;
+      }
+    }
+    if (session.task?.outcome === 'in_progress') {
+      session.task.outcome = 'stopped';
+      dirty = true;
+    }
   }
   for (const session of store.value.sessions)
     for (const change of session.changes ?? []) {

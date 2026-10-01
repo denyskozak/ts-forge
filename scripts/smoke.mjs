@@ -26,6 +26,7 @@ await writeFile(
   JSON.stringify({ compilerOptions: { strict: false, noEmit: true }, include: ['main.ts'] }),
 );
 let step = 0;
+let featureStep = -1;
 const server = createServer(async (req, res) => {
   let raw = '';
   for await (const chunk of req) raw += chunk;
@@ -35,6 +36,50 @@ const server = createServer(async (req, res) => {
   if (req.url === '/api/show') return res.end('{"capabilities":["tools"]}');
   if (!body.tools)
     return res.end(JSON.stringify({ message: { content: 'OK' }, done: true }) + '\n');
+  if (featureStep >= 0) {
+    const calls = [
+      {
+        name: 'plan_task',
+        arguments: {
+          goal: 'Extract the greeting into a feature module',
+          criteria: ['The greeting comes from the feature module'],
+          constraints: ['Preserve the hello export'],
+          requiredChecks: [{ recipe: 'typescript.check', project: 'tsconfig.json' }],
+        },
+      },
+      { name: 'read_file', arguments: { path: 'index.ts' } },
+      {
+        name: 'apply_changeset',
+        arguments: {
+          rationale: 'Keep the public export and its new implementation together',
+          edits: [
+            {
+              path: 'index.ts',
+              content:
+                'import { greeting } from "./feature";\nexport const hello: string = greeting;\n',
+            },
+            { path: 'feature.ts', content: 'export const greeting = "forge";\n' },
+          ],
+        },
+      },
+      {
+        name: 'run_validation',
+        arguments: { recipe: 'typescript.check', project: 'tsconfig.json' },
+      },
+    ];
+    const call = calls[featureStep++];
+    return res.end(
+      JSON.stringify({
+        message: call
+          ? { content: '', tool_calls: [{ function: call }] }
+          : {
+              content:
+                'The two-file feature is applied. TypeScript passed; please review acceptance.',
+            },
+        done: true,
+      }) + '\n',
+    );
+  }
   let message;
   if (step++ === 0)
     message = {
@@ -270,13 +315,48 @@ try {
   );
   assert.match(await readFile(path.join(project, 'index.ts'), 'utf8'), /"forge"/);
   await page.getByRole('button', { name: /^Changes/ }).click();
-  await page.getByRole('button', { name: 'Undo change' }).click();
+  await page.getByRole('button', { name: 'Undo change', exact: true }).click();
   await expect
     .poll(() =>
       page.evaluate(() => window.forge.state().then((s) => s.sessions[0].changes[0].status)),
     )
     .toBe('undone');
   assert.equal(await readFile(path.join(project, 'index.ts'), 'utf8'), original);
+  featureStep = 0;
+  await page
+    .getByRole('textbox', { name: 'Message Forge' })
+    .fill('Extract greeting into a new feature module and preserve hello.');
+  await page.getByRole('button', { name: 'Send message' }).click();
+  await page.getByRole('button', { name: 'Apply changeset', exact: true }).waitFor();
+  await page.getByRole('region', { name: 'Impact preview' }).last().waitFor();
+  assert.equal(await readFile(path.join(project, 'index.ts'), 'utf8'), original);
+  await page.reload();
+  await page.getByRole('button', { name: 'Apply changeset', exact: true }).waitFor();
+  await page.screenshot({ path: 'docs/forge-task-review.png' });
+  await page.getByRole('button', { name: 'Apply changeset', exact: true }).click();
+  await page.getByRole('button', { name: 'Run check', exact: true }).click();
+  await page.getByRole('button', { name: 'Stop agent' }).waitFor({ state: 'hidden' });
+  const featureState = await page.evaluate(() => window.forge.state());
+  assert.equal(featureState.sessions[0].task.outcome, 'completed_unverified');
+  assert.equal(featureState.sessions[0].task.validations.at(-1).status, 'passed');
+  assert.match(await readFile(path.join(project, 'index.ts'), 'utf8'), /import/);
+  const checkboxes = page.locator('.task-criterion input');
+  for (let index = 0; index < (await checkboxes.count()); index++) {
+    await checkboxes.nth(index).click();
+    await expect(checkboxes.nth(index)).toBeChecked();
+  }
+  await expect
+    .poll(() => page.evaluate(() => window.forge.state().then((s) => s.sessions[0].task.outcome)))
+    .toBe('completed_verified');
+  await page.screenshot({ path: 'docs/forge-task-verified.png' });
+  await page.getByRole('button', { name: /^Changes/ }).click();
+  await page.getByRole('button', { name: 'Undo changeset', exact: true }).click();
+  await expect.poll(() => readFile(path.join(project, 'index.ts'), 'utf8')).toBe(original);
+  await assert.rejects(readFile(path.join(project, 'feature.ts'), 'utf8'));
+  assert.equal(
+    (await page.evaluate(() => window.forge.state())).sessions[0].task.outcome,
+    'completed_unverified',
+  );
   await page.getByRole('button', { name: 'Skills', exact: true }).click();
   await page.getByRole('button', { name: 'Toggle Next.js' }).click();
   assert.ok((await page.evaluate(() => window.forge.state())).settings.skills.includes('next'));

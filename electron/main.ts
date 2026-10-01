@@ -17,6 +17,10 @@ import { analyzeProject } from './project-map';
 import { recoverInterrupted, undoChange } from './changes';
 import { Store } from './store';
 import { Agent } from './agent';
+import { undoChangeSet } from './change-sets';
+import { taskOutcome } from '../shared/task';
+import { workspaceFingerprint, runValidation } from './validation';
+import { analyzeImpact, closeAnalysis, invalidateAnalysis } from './language-tools';
 import { Trainer, exportDataset } from './training';
 import { models, testConnection } from './provider';
 import { listFiles, readText } from './workspace';
@@ -205,10 +209,94 @@ app
         return map;
       }),
     );
+    handle('analyze-impact', (paths) =>
+      exclusive(async () => {
+        const root = store.value.workspacePath;
+        if (!root) throw new Error('Open a workspace first.');
+        invalidateAnalysis(root);
+        return analyzeImpact(
+          root,
+          z.array(z.string().min(1).max(500)).min(1).max(40).parse(paths),
+          AbortSignal.timeout(30000),
+        );
+      }),
+    );
+    handle('undo-changeset', (id) =>
+      exclusive(async () => {
+        const session = await undoChangeSet(store, z.string().uuid().parse(id));
+        session.changes?.forEach((change) => emit({ type: 'change', change }));
+        session.changeSets?.forEach((changeSet) => emit({ type: 'changeset', changeSet }));
+        if (session.task) emit({ type: 'task', task: session.task });
+        return session;
+      }),
+    );
+    handle('validate-task', (sessionId, checkIndex) =>
+      exclusive(async () => {
+        const session = store.value.sessions.find(
+          (s) => s.id === z.string().uuid().parse(sessionId),
+        );
+        const task = session?.task;
+        const index = z.number().int().min(0).max(11).parse(checkIndex);
+        const check = task?.requiredChecks[index];
+        if (!session || !task || !check) throw new Error('Task check not found.');
+        const receipt = await runValidation(
+          session.workspace,
+          store.directory,
+          check,
+          AbortSignal.timeout(120000),
+        );
+        task.validations.push(receipt);
+        task.fingerprint = await workspaceFingerprint(session.workspace).catch(() => '');
+        task.appliedChanges =
+          session.changeSets
+            ?.filter((set) => set.runId === task.runId && set.status === 'applied')
+            .reduce((count, set) => count + set.changeIds.length, 0) ?? 0;
+        task.outcome = taskOutcome(task);
+        await store.save();
+        emit({ type: 'task', task });
+        return task;
+      }),
+    );
+    handle('accept-criterion', (sessionId, criterionId) =>
+      exclusive(async () => {
+        const session = store.value.sessions.find(
+          (s) => s.id === z.string().uuid().parse(sessionId),
+        );
+        const task = session?.task;
+        if (!session || !task || ['in_progress', 'failed', 'stopped'].includes(task.outcome))
+          throw new Error('Only a completed task can be accepted.');
+        const criterion = task.criteria.find((c) => c.id === z.string().uuid().parse(criterionId));
+        if (!criterion) throw new Error('Criterion not found.');
+        const fingerprint = await workspaceFingerprint(session.workspace);
+        if (fingerprint !== task.fingerprint) {
+          task.fingerprint = fingerprint;
+          task.outcome = 'completed_unverified';
+          task.criteria.forEach((c) => {
+            delete c.acceptedFingerprint;
+          });
+          await store.save();
+          emit({ type: 'task', task });
+          throw new Error('Project changed since verification. Run the checks again.');
+        }
+        task.appliedChanges =
+          session.changeSets
+            ?.filter((set) => set.runId === task.runId && set.status === 'applied')
+            .reduce((count, set) => count + set.changeIds.length, 0) ?? 0;
+        criterion.acceptedFingerprint = fingerprint;
+        task.outcome = taskOutcome(task);
+        await store.save();
+        emit({ type: 'task', task });
+        return task;
+      }),
+    );
     handle('undo-change', async (id) => {
       if (agent.busy) throw new Error('Stop the agent before undo.');
       const change = await undoChange(store, z.string().uuid().parse(id));
       emit({ type: 'change', change });
+      const session = store.value.sessions.find((s) => s.changes?.some((c) => c.id === change.id));
+      session?.changes?.forEach((item) => emit({ type: 'change', change: item }));
+      session?.changeSets?.forEach((changeSet) => emit({ type: 'changeset', changeSet }));
+      if (session?.task) emit({ type: 'task', task: session.task });
       return change;
     });
     handle('delete-session', async (id) => {
@@ -291,6 +379,7 @@ app
       exclusive(async () => {
         if (agent.busy) throw new Error('Stop the current run before changing workspace.');
         const root = path.resolve(z.string().max(4000).parse(value));
+        closeAnalysis(root);
         store.value.workspacePaths = store.value.workspacePaths.filter((item) => item !== root);
         if (store.value.workspacePath !== root) {
           await store.save();
@@ -419,6 +508,7 @@ app.on('before-quit', (event) => {
     const start = Date.now();
     while ((agent?.busy || trainer?.isRunning) && Date.now() - start < 6000)
       await new Promise((r) => setTimeout(r, 50));
+    closeAnalysis();
     await store?.flush();
   })().finally(() => app.quit());
 });

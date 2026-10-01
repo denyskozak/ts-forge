@@ -1,3 +1,4 @@
+import type { TaskRecord, ChangeSet, ImpactReport } from './task';
 export type Page = 'agent' | 'models' | 'skills' | 'training' | 'settings';
 export type SkillId = 'typescript' | 'react' | 'react-native' | 'next';
 export interface Settings {
@@ -48,6 +49,8 @@ export interface Session {
   messages: Message[];
   updatedAt: number;
   changes?: Change[];
+  changeSets?: ChangeSet[];
+  task?: TaskRecord;
 }
 export interface Example {
   id: string;
@@ -68,13 +71,15 @@ export interface Change {
   workspace?: string;
   sessionId?: string;
   existed?: boolean;
+  changeSetId?: string;
   createdAt?: number;
 }
 export interface Approval {
   id: string;
-  kind: 'write' | 'typecheck';
+  kind: 'write' | 'typecheck' | 'changeset' | 'validation';
   title: string;
   change?: Change;
+  changeSet?: ChangeSet;
 }
 export interface ClarificationOption {
   id: string;
@@ -116,7 +121,9 @@ export type AgentEvent =
   | { type: 'done'; session: Session }
   | { type: 'error'; error: string }
   | { type: 'training'; text: string; running: boolean }
-  | { type: 'map'; map: ProjectMap };
+  | { type: 'map'; map: ProjectMap }
+  | { type: 'task'; task: TaskRecord }
+  | { type: 'changeset'; changeSet: ChangeSet };
 export interface ForgeAPI {
   state(): Promise<AppState>;
   settings(value: Settings): Promise<Settings>;
@@ -124,6 +131,10 @@ export interface ForgeAPI {
   testConnection(endpoint: string, model: string): Promise<ConnectionTest>;
   analyzeProject(): Promise<ProjectMap>;
   undoChange(id: string): Promise<Change>;
+  undoChangeSet(id: string): Promise<Session>;
+  acceptCriterion(sessionId: string, criterionId: string): Promise<TaskRecord>;
+  analyzeImpact(paths: string[]): Promise<ImpactReport>;
+  validateTask(sessionId: string, checkIndex: number): Promise<TaskRecord>;
   captureExample(sessionId: string, messageId: string): Promise<Example[]>;
   deleteSession(id: string): Promise<void>;
   openWorkspace(): Promise<Workspace | null>;

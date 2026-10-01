@@ -1,9 +1,10 @@
 import { parentPort } from 'node:worker_threads';
-import { languageQuery, type AnalysisRequest } from './analysis-engine';
-parentPort!.on('message', (request: AnalysisRequest) => {
+import { createAnalysisEngine, type AnalysisRequest } from './analysis-engine';
+const engine = createAnalysisEngine();
+parentPort!.on('message', ({ id, request }: { id: number; request: AnalysisRequest }) => {
   try {
-    parentPort!.postMessage({ result: languageQuery(request) });
+    parentPort!.postMessage({ id, result: engine.query(request) });
   } catch (error) {
-    parentPort!.postMessage({ error: (error as Error).message });
+    parentPort!.postMessage({ id, error: (error as Error).message });
   }
 });

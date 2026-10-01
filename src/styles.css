@@ -2435,3 +2435,90 @@ select {
   content-visibility: auto;
   contain-intrinsic-size: auto 120px;
 }
+
+.task-panel,
+.changeset-summary {
+  border: 1px solid #403b35;
+  border-radius: 9px;
+  background: #191a1c;
+  padding: 12px;
+  margin-bottom: 12px;
+  font-size: 11px;
+}
+.task-panel {
+  max-height: 280px;
+  overflow: auto;
+}
+.task-panel summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.task-panel summary span {
+  color: #c6ab8d;
+  margin-left: 8px;
+}
+.task-panel p,
+.impact-preview p {
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.task-panel small,
+.impact-preview small {
+  display: block;
+  color: #99938b;
+  line-height: 1.5;
+}
+.task-criterion {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 8px 0;
+}
+.task-criterion input {
+  margin-top: 2px;
+  accent-color: #bf9165;
+}
+.task-check-title {
+  display: block;
+  margin-top: 12px;
+}
+.task-check {
+  border-top: 1px solid #353537;
+  padding: 9px 0;
+}
+.task-check > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.task-check b {
+  color: #c6ab8d;
+}
+.task-check button,
+.changeset-summary > button {
+  display: block;
+  padding: 6px 8px;
+  border: 1px solid #6f5038;
+  border-radius: 5px;
+  margin: 6px 0;
+}
+.task-check pre {
+  white-space: pre-wrap;
+  max-height: 180px;
+  overflow: auto;
+  font-size: 10px;
+}
+.impact-preview {
+  margin: 12px 0;
+}
+.impact-preview details {
+  margin: 8px 0;
+}
+.impact-preview button {
+  display: block;
+  font-size: 10px;
+  color: #c6ab8d;
+  text-align: left;
+  overflow-wrap: anywhere;
+  padding: 3px 0;
+}

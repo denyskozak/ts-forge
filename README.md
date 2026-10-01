@@ -83,6 +83,24 @@ For React and Next.js projects it identifies entrypoints, routes, components, ho
 
 The index is bounded and reports when a scan is incomplete. Source text is loaded only through explicit read tools or a small task-relevant architecture slice.
 
+## Task contracts, grouped changes, and evidence
+
+Each run starts with a persisted task contract. The agent can refine its goal, constraints, out-of-scope work, acceptance criteria, and required checks through `plan_task`. The original user request remains an acceptance criterion.
+
+- **Review together:** `apply_changeset` proposes up to 40 files under one approval, with an impact preview. All original versions are checked before writing. A journal supports rollback after failure, cancellation, or restart; undo preserves concurrent user edits and reports conflicts. Individual file writes are atomic, but other processes can observe intermediate files during a multi-file change.
+- **Validate in isolation:** `run_validation` runs a fixed recipe in a temporary project snapshot with network access denied and the original workspace protected from writes. Recipes cover TypeScript, Vitest/Jest or explicit Node tests, ESLint, Prettier, Next.js, installed Expo Doctor, and package export target existence. Missing tools produce an unavailable result; Forge never installs them automatically.
+- **Verify explicitly:** checks record their real exit status and source fingerprint. The task becomes `completed_verified` only after changes are applied, all required checks pass for that fingerprint, and you confirm every acceptance criterion in the Task contract panel. A model's final message cannot assign this status. Checks can be rerun from the panel.
+- **Reuse analysis:** each active workspace keeps a TypeScript language service, updates changed source versions, and exposes paginated references. The cache retains at most three workspaces and invalidates on filesystem events and Forge edits.
+- **Inspect impact:** `analyze_impact` traces resolved static imports and re-exports to consumers, related tests, exports, and possible framework/security boundaries. The preview includes source edges and limitations before approval.
+
+![Task contract with validation evidence](docs/forge-task-verified.png)
+
+### Current scope
+
+Semantic snapshots are bounded to 2,000 files / 16 MB and report omitted files. They use project configuration and path aliases, but are not a complete multi-project TypeScript build service. Dynamic imports, runtime calls, dependency declarations, and framework-generated code can make impact analysis incomplete; its preview is evidence to review, not a safety guarantee.
+
+Validation snapshots are bounded to 10,000 files / 64 MB (10 MB per file), exclude ignored and protected files, and refuse partial scans. Installed dependencies are shared read-only rather than copied or fingerprinted; avoid changing dependencies during checks. Composite projects may require their own build preparation. A passing recipe only proves the selected check passed, not the whole feature. These execution protections currently require macOS.
+
 ## Critical clarification loop
 
 Before choosing actions on each step, the local model checks whether one missing user decision could substantially change:

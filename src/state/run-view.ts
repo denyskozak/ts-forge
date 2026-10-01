@@ -1,3 +1,4 @@
+import type { TaskRecord, ChangeSet } from '../../shared/task';
 import type {
   AgentEvent,
   AppState,
@@ -10,6 +11,8 @@ import type {
 export interface RunView {
   messages: Message[];
   changes: Change[];
+  task?: TaskRecord;
+  changeSets?: ChangeSet[];
   sessionId?: string;
   busy: boolean;
   status: string;
@@ -42,6 +45,8 @@ export function runViewReducer(state: RunView, action: RunAction): RunView {
       return {
         messages: session?.messages ?? [],
         changes: session?.changes ?? [],
+        task: session?.task,
+        changeSets: session?.changeSets,
         sessionId: run.sessionId,
         busy: true,
         status: run.label,
@@ -58,6 +63,8 @@ export function runViewReducer(state: RunView, action: RunAction): RunView {
             sessionId: action.session?.id,
             messages: action.session?.messages ?? [],
             changes: action.session?.changes ?? [],
+            ...(action.session?.task ? { task: action.session.task } : {}),
+            ...(action.session?.changeSets ? { changeSets: action.session.changeSets } : {}),
           };
     case 'start':
       return {
@@ -89,6 +96,18 @@ export function runViewReducer(state: RunView, action: RunAction): RunView {
           : [...state.messages, action.message],
         stream: action.message.role === 'assistant' ? '' : state.stream,
       };
+    case 'task':
+      if (!state.busy && state.task?.runId !== action.task.runId) return state;
+      return { ...state, task: action.task };
+    case 'changeset':
+      if (!state.busy && state.sessionId !== action.changeSet.sessionId) return state;
+      return {
+        ...state,
+        changeSets: [
+          ...(state.changeSets ?? []).filter((set) => set.id !== action.changeSet.id),
+          action.changeSet,
+        ],
+      };
     case 'change':
       return {
         ...state,
@@ -104,6 +123,8 @@ export function runViewReducer(state: RunView, action: RunAction): RunView {
         sessionId: action.session.id,
         messages: action.session.messages,
         changes: action.session.changes ?? [],
+        task: action.session.task,
+        changeSets: action.session.changeSets,
       };
     default:
       return state;

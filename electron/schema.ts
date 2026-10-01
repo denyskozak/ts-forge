@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { taskSchema, changeSetSchema } from '../shared/task';
 import { DEFAULT_SETTINGS } from '../shared/types';
 import { localEndpoint } from './provider';
 export const settingsSchema = z.object({
@@ -41,6 +42,7 @@ export const changeSchema = z.object({
   workspace: z.string().optional(),
   sessionId: z.string().optional(),
   existed: z.boolean().optional(),
+  changeSetId: z.string().optional(),
   createdAt: z.number().optional(),
 });
 const session = z.object({
@@ -50,6 +52,8 @@ const session = z.object({
   messages: z.array(message),
   updatedAt: z.number(),
   changes: z.array(changeSchema).optional(),
+  changeSets: z.array(changeSetSchema).optional(),
+  task: taskSchema.optional(),
 });
 const example = z.object({
   id: z.string(),
@@ -69,9 +73,10 @@ const example = z.object({
 });
 const approval = z.object({
   id: z.string(),
-  kind: z.enum(['write', 'typecheck']),
+  kind: z.enum(['write', 'typecheck', 'changeset', 'validation']),
   title: z.string(),
   change: changeSchema.optional(),
+  changeSet: changeSetSchema.optional(),
 });
 const clarification = z.object({
   id: z.string(),
