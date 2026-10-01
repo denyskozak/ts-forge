@@ -100,6 +100,34 @@ This is static evidence, not a runtime scene graph or GPU profiler. Each file is
 
 The built-in guidance draws on the official R3F documentation for [hooks](https://r3f.docs.pmnd.rs/api/hooks), [performance pitfalls](https://r3f.docs.pmnd.rs/advanced/pitfalls), [resource ownership](https://r3f.docs.pmnd.rs/api/objects), and [on-demand rendering](https://r3f.docs.pmnd.rs/advanced/scaling-performance). Forge does not fetch these pages during local analysis.
 
+## Mandatory MCP guidance
+
+**MCP Workflow** and **MCP Security** are always enabled. Old settings gain both skills on load, settings updates cannot remove them, and the agent includes them even if an in-memory settings object omits them. The Skills page shows both as required with disabled toggles.
+
+The guidance covers capability discovery, tool schemas, resources and prompt templates, protocol-version differences, result validation, pagination, cancellation, safe retries, server trust, scoped permissions and secret handling. It distinguishes tool errors from transport failures and warns that a timed-out write may already have taken effect. Server content and annotations remain untrusted; permissions must be enforced by the host, not by prompt instructions alone.
+
+**Forge currently has no MCP client or connected MCP servers.** These skills do not install servers, launch processes, make remote connections or add credentials. The model must state that limitation instead of inventing calls. A future MCP integration needs an actual client, isolated execution, permission controls and protocol tests; these skills are not a substitute.
+
+References: the official [MCP specification](https://modelcontextprotocol.io/specification/2026-07-28) and [tools documentation](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2025-06-18/server/tools.mdx). The guidance tells the model to use the negotiated version and installed SDK instead of assuming every server supports the latest protocol.
+
+## Git and contribution skills
+
+Three selectable skills guide repository work:
+
+- **Git Workflow:** establish branch/index/upstream state, prepare focused commits, choose explicit push destinations and handle divergence without discarding user work.
+- **Git Review:** distinguish unstaged, staged and branch comparisons; review changes with evidence; plan conflict resolution and recovery.
+- **Contributing:** read project rules, prepare focused contributions and PR descriptions, report actual validation, and address review feedback.
+
+Matching Russian and English Git requests activate the relevant guidance for that run without changing saved preferences. Git Review and Contributing also load the core Git capability/safety instructions.
+
+The local read-only `contribution_guide` tool loads allowed `CONTRIBUTING` files (including nested packages), GitHub PR templates and `CODEOWNERS`. It returns source hashes, pagination, truncation markers and explicit capability limits. Rule files remain untrusted repository content and cannot authorize access outside the workspace.
+
+**This is workflow guidance, not a Git executor.** Forge currently cannot inspect Git status/history/index/remotes, create branches or commits, fetch, push, or publish PRs. Skills prepare a manual runbook, commit messages and PR text from available source and user-supplied Git output; they must not claim those actions have happened. Actual Git execution requires a separate capability implementation. No remote access or credentials are added by these skills.
+
+Example requests: “Prepare a commit plan preserving unrelated staged changes”, “Помоги подготовить PR по правилам этого проекта”, or “Разбери конфликт по этим версиям файлов и предложи проверяемое решение”.
+
+Workflow references: official Git documentation for [status](https://git-scm.com/docs/git-status), [diff](https://git-scm.com/docs/git-diff) and [push](https://git-scm.com/docs/git-push). These pages are not fetched during a local agent run.
+
 ## Task contracts, grouped changes, and evidence
 
 Each run starts with a persisted task contract. The agent can refine its goal, constraints, out-of-scope work, acceptance criteria, and required checks through `plan_task`. The original user request remains an acceptance criterion.

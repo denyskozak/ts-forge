@@ -10,6 +10,7 @@ const READ_ONLY_TOOLS = new Set([
   'typescript_project_analysis',
   'inspect_feature',
   'inspect_scene',
+  'contribution_guide',
   'typescript_query',
 ]);
 

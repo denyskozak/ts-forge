@@ -1,8 +1,28 @@
+import {
+  REQUIRED_MCP_SKILLS,
+  MCP_WORKFLOW_INSTRUCTIONS,
+  MCP_SECURITY_INSTRUCTIONS,
+} from './mcp-skills';
+import {
+  GIT_WORKFLOW_INSTRUCTIONS,
+  GIT_REVIEW_INSTRUCTIONS,
+  CONTRIBUTING_INSTRUCTIONS,
+} from './git-skills';
 import type { SceneSource } from './react-three';
 import { REACT_THREE_INSTRUCTIONS } from './react-three';
 import type { TaskRecord, ChangeSet, ImpactReport } from './task';
 export type Page = 'agent' | 'models' | 'skills' | 'training' | 'settings';
-export type SkillId = 'typescript' | 'react' | 'react-native' | 'next' | 'react-three';
+export type SkillId =
+  | 'typescript'
+  | 'react'
+  | 'react-native'
+  | 'next'
+  | 'react-three'
+  | 'git'
+  | 'git-review'
+  | 'contributing'
+  | 'mcp-workflow'
+  | 'mcp-security';
 export interface Settings {
   endpoint: string;
   model: string;
@@ -270,7 +290,7 @@ export interface TrainingJob {
 export const DEFAULT_SETTINGS: Settings = {
   endpoint: 'http://127.0.0.1:11434',
   model: '',
-  skills: ['typescript', 'react', 'react-native'],
+  skills: ['typescript', 'react', 'react-native', ...REQUIRED_MCP_SKILLS],
   temperature: 0.2,
   maxSteps: 12,
   contextTokens: 16384,
@@ -283,7 +303,45 @@ export const SKILLS: {
   description: string;
   instructions: string;
   tags: string[];
+  required?: boolean;
 }[] = [
+  {
+    id: 'mcp-workflow',
+    name: 'MCP Workflow',
+    description: 'Discovery, schemas, resources and honest execution results.',
+    tags: ['Required', 'Protocol', 'Tools'],
+    required: true,
+    instructions: MCP_WORKFLOW_INSTRUCTIONS,
+  },
+  {
+    id: 'mcp-security',
+    name: 'MCP Security',
+    description: 'Server trust, scoped access and private data boundaries.',
+    tags: ['Required', 'Privacy', 'Permissions'],
+    required: true,
+    instructions: MCP_SECURITY_INSTRUCTIONS,
+  },
+  {
+    id: 'git',
+    name: 'Git Workflow',
+    description: 'Branches, focused commits and explicit push destinations.',
+    tags: ['Branches', 'Commits', 'Push'],
+    instructions: GIT_WORKFLOW_INSTRUCTIONS,
+  },
+  {
+    id: 'git-review',
+    name: 'Git Review',
+    description: 'Diff review, conflicts and recovery without losing work.',
+    tags: ['Diffs', 'Conflicts', 'Recovery'],
+    instructions: GIT_REVIEW_INSTRUCTIONS,
+  },
+  {
+    id: 'contributing',
+    name: 'Contributing',
+    description: 'Repository rules, focused contributions and honest PR descriptions.',
+    tags: ['CONTRIBUTING', 'Pull requests', 'Review'],
+    instructions: CONTRIBUTING_INSTRUCTIONS,
+  },
   {
     id: 'typescript',
     name: 'TypeScript',

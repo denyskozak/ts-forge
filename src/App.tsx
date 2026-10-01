@@ -67,7 +67,15 @@ const skillGlyph = (id: (typeof SKILLS)[number]['id']) =>
         ? 'RN'
         : id === 'react-three'
           ? '3D'
-          : 'N';
+          : id === 'git'
+            ? 'GIT'
+            : id === 'git-review'
+              ? 'DIFF'
+              : id === 'contributing'
+                ? 'PR'
+                : id.startsWith('mcp-')
+                  ? 'MCP'
+                  : 'N';
 const initial: AppState = {
   settings: DEFAULT_SETTINGS,
   workspace: null,
@@ -104,6 +112,9 @@ export default function App() {
   const [trainingLog, setTrainingLog] = useState(''),
     [training, setTraining] = useState(false),
     [help, setHelp] = useState(false);
+  const activeSkills = SKILLS.filter(
+    (skill) => skill.required || state.settings.skills.includes(skill.id),
+  );
   const stickToBottom = useRef(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [workspaceMenu, setWorkspaceMenu] = useState(false);
@@ -850,30 +861,33 @@ export default function App() {
                 <PageHeader
                   eyebrow="THE RIGHT KIND OF CONTEXT"
                   title="A little more specialized."
-                  description="Focused instructions for the way you build. Toggle skills to shape your agent’s approach."
+                  description="Focused instructions for the way you build. Choose optional skills. MCP workflow and security are always active."
                 />
                 <div className="section-heading">
                   <h3>Your toolkit</h3>
-                  <Badge tone="amber">{state.settings.skills.length} active</Badge>
+                  <Badge tone="amber">{activeSkills.length} active</Badge>
                 </div>
                 <div className="skills-grid">
                   {SKILLS.map((skill) => (
                     <div
-                      className={`skill-card ${state.settings.skills.includes(skill.id) ? 'enabled' : ''}`}
+                      className={`skill-card ${skill.required || state.settings.skills.includes(skill.id) ? 'enabled' : ''}`}
                       key={skill.id}
                     >
                       <div className="skill-card-top">
                         <span className={`skill-logo ${skill.id}`}>{skillGlyph(skill.id)}</span>
                         <button
+                          disabled={skill.required}
+                          title={skill.required ? 'Required in every agent run' : undefined}
                           aria-label={`Toggle ${skill.name}`}
-                          aria-pressed={state.settings.skills.includes(skill.id)}
-                          className={`toggle ${state.settings.skills.includes(skill.id) ? 'on' : ''}`}
+                          aria-pressed={skill.required || state.settings.skills.includes(skill.id)}
+                          className={`toggle ${skill.required || state.settings.skills.includes(skill.id) ? 'on' : ''}`}
                           onClick={() =>
                             saveSettings({
                               ...state.settings,
-                              skills: state.settings.skills.includes(skill.id)
-                                ? state.settings.skills.filter((id) => id !== skill.id)
-                                : [...state.settings.skills, skill.id],
+                              skills:
+                                skill.required || state.settings.skills.includes(skill.id)
+                                  ? state.settings.skills.filter((id) => id !== skill.id)
+                                  : [...state.settings.skills, skill.id],
                             })
                           }
                         >
@@ -1133,19 +1147,22 @@ export default function App() {
                     )}
                     <div className="context-separator" />
                     <div className="context-label">
-                      ACTIVE SKILLS<span>{state.settings.skills.length}</span>
+                      ACTIVE SKILLS
+                      <span>{activeSkills.length}</span>
                     </div>
-                    {SKILLS.filter((s) => state.settings.skills.includes(s.id)).map((s) => (
+                    {activeSkills.map((s) => (
                       <div className="context-skill" key={s.id}>
                         <span className={`mini-skill ${s.id}`}>{skillGlyph(s.id)}</span>
                         <span>
                           {s.name}
                           <small>
-                            {s.id === 'typescript'
-                              ? 'Language specialization'
-                              : s.id === 'react'
-                                ? 'Component architecture'
-                                : 'Full-stack framework'}
+                            {s.required
+                              ? 'Mandatory harness guidance'
+                              : s.id === 'typescript'
+                                ? 'Language specialization'
+                                : s.id === 'react'
+                                  ? 'Component architecture'
+                                  : 'Full-stack framework'}
                           </small>
                         </span>
                         <span className="tiny-dot green" />

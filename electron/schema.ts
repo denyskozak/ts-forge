@@ -1,3 +1,4 @@
+import { REQUIRED_MCP_SKILLS } from '../shared/mcp-skills';
 import { z } from 'zod';
 import { taskSchema, changeSetSchema } from '../shared/task';
 import { DEFAULT_SETTINGS } from '../shared/types';
@@ -5,7 +6,22 @@ import { localEndpoint } from './provider';
 export const settingsSchema = z.object({
   endpoint: z.string().transform(localEndpoint),
   model: z.string().max(200),
-  skills: z.array(z.enum(['typescript', 'react', 'react-native', 'next', 'react-three'])),
+  skills: z
+    .array(
+      z.enum([
+        'typescript',
+        'react',
+        'react-native',
+        'next',
+        'react-three',
+        'git',
+        'git-review',
+        'contributing',
+        'mcp-workflow',
+        'mcp-security',
+      ]),
+    )
+    .transform((skills) => [...new Set([...skills, ...REQUIRED_MCP_SKILLS])]),
   temperature: z.number().min(0).max(1),
   maxSteps: z.number().int().min(1).max(30),
   contextTokens: z.number().int().min(4096).max(65536).default(16384),

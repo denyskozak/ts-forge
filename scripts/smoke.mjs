@@ -358,10 +358,40 @@ try {
     'completed_unverified',
   );
   await page.getByRole('button', { name: 'Skills', exact: true }).click();
+  for (const name of ['MCP Workflow', 'MCP Security']) {
+    const toggle = page.getByRole('button', { name: `Toggle ${name}`, exact: true });
+    await expect(toggle).toBeDisabled();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  }
+  const normalized = await page.evaluate(async () => {
+    const state = await window.forge.state();
+    return window.forge.settings({
+      ...state.settings,
+      skills: state.settings.skills.filter((id) => !id.startsWith('mcp-')),
+    });
+  });
+  assert.ok(normalized.skills.includes('mcp-workflow'));
+  assert.ok(normalized.skills.includes('mcp-security'));
   await page.getByRole('button', { name: 'Toggle React Three Fiber' }).click();
   assert.ok(
     (await page.evaluate(() => window.forge.state())).settings.skills.includes('react-three'),
   );
+  for (const [name, id] of [
+    ['Git Workflow', 'git'],
+    ['Git Review', 'git-review'],
+    ['Contributing', 'contributing'],
+  ]) {
+    await page.getByRole('button', { name: `Toggle ${name}`, exact: true }).click();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (skillId) =>
+            window.forge.state().then((state) => state.settings.skills.includes(skillId)),
+          id,
+        ),
+      )
+      .toBe(true);
+  }
   await page.getByRole('button', { name: 'Toggle Next.js' }).click();
   assert.ok((await page.evaluate(() => window.forge.state())).settings.skills.includes('next'));
   await page.getByRole('button', { name: 'Training lab LAB' }).click();
