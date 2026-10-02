@@ -7,6 +7,7 @@ export const recipeSchema = z.enum([
   'format.check',
   'next.build',
   'expo.doctor',
+  'playwright.scenario',
   'package.exports.check',
 ]);
 export type RecipeId = z.infer<typeof recipeSchema>;

@@ -4,6 +4,8 @@ import { contributionGuide } from './contribution-guide';
 import { searchKnowledge } from './knowledge-index';
 import { webSearch, webSearchInput } from './web-search';
 import { inspectScene } from './react-three';
+import { discoverValidationPlan } from './validation-plan';
+import { inspectNativeProject } from './native-project';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { z } from 'zod';
@@ -81,6 +83,11 @@ const schemas = {
     limit: z.number().int().min(1).max(12).default(6),
   }),
   web_search: webSearchInput,
+  discover_validation_plan: z.object({}),
+  run_ui_scenario: z.object({
+    specs: z.array(z.string().min(1).max(500)).min(1).max(8),
+  }),
+  inspect_native_project: z.object({}),
   project_mental_model: z.object({}),
   typescript_project_analysis: z.object({}),
   inspect_feature: z.object({ query: z.string().min(2).max(200) }),
@@ -152,6 +159,12 @@ const descriptions: Record<keyof typeof schemas, string> = {
     'Search the local project index and user-selected local documentation using lexical ranking or configured loopback Ollama embeddings. Returns bounded excerpts with paths and offsets. Read original source before editing.',
   web_search:
     'Search the web only when Web search is enabled in Settings and after explicit approval. The query is sent to the search provider; only HTTPS results on configured allowed domains are returned. Result pages are not fetched.',
+  discover_validation_plan:
+    'Detect installed local validators, scripts and Playwright UI specs. Returns suggested task checks without executing package scripts or downloading dependencies.',
+  run_ui_scenario:
+    'Run selected existing Playwright spec files in a disposable snapshot after approval. Network is blocked and the original workspace is read-only. Reports browser/test failures; it cannot prove GPU rendering or a real device result.',
+  inspect_native_project:
+    'Inspect React Native or Expo configuration, router, navigation files and permission evidence. Read-only static analysis; read source configs before editing them.',
   project_mental_model:
     'Return the detected React/React Native/Next architecture: frameworks, entrypoints, routes/screens, state, navigation, data boundaries and layers. Use this first when asked to understand a project.',
   typescript_project_analysis:
@@ -576,6 +589,25 @@ export class Agent {
               });
               if (!approved) result = 'Web search was declined. No query was sent.';
               else result = JSON.stringify(await webSearch(args.query, domains, signal));
+            } else if (name === 'discover_validation_plan') {
+              result = JSON.stringify(await discoverValidationPlan(root, signal));
+            } else if (name === 'inspect_native_project') {
+              result = JSON.stringify(await inspectNativeProject(root, signal));
+            } else if (name === 'run_ui_scenario') {
+              const args = schemas.run_ui_scenario.parse(call.function.arguments);
+              const check = checkSchema.parse({ recipe: 'playwright.scenario', files: args.specs });
+              const allow = await this.permission({
+                id: randomUUID(),
+                kind: 'validation',
+                title: 'Run selected Playwright UI scenarios in a disposable copy: no network or workspace writes.',
+              });
+              const receipt = allow && !signal.aborted
+                ? await runValidation(root, this.store.directory, check, signal)
+                : { ...check, id: randomUUID(), fingerprint: '', startedAt: Date.now(), durationMs: 0, status: 'declined' as const, exitCode: null, output: 'User declined; no UI scenario ran.' };
+              task.validations.push(receipt);
+              task.fingerprint = await workspaceFingerprint(root, signal).catch(() => '');
+              await publishTask();
+              result = JSON.stringify(receipt);
             } else if (name === 'list_files') {
               const args = schemas.list_files.parse(call.function.arguments),
                 scan = await scanFiles(root, 10000, signal);

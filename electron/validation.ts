@@ -118,6 +118,12 @@ export async function resolveRecipe(
   }
   if (check.recipe === 'next.build') return local('next', 'dist/bin/next', ['build']);
   if (check.recipe === 'expo.doctor') return local('expo-doctor', 'build/index.js', []);
+  if (check.recipe === 'playwright.scenario') {
+    if (!check.files.length) throw new Error('Playwright scenarios require one or more selected spec files.');
+    if (!check.files.every((file) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(file)))
+      throw new Error('Playwright scenarios accept only .test or .spec source files.');
+    return local('@playwright/test', 'cli.js', ['test', '--workers=1', '--reporter=line', '--', ...check.files]);
+  }
   return { args: [], reads: [] };
 }
 async function checkExports(root: string, snapshot: string) {

@@ -114,6 +114,10 @@ Indexes are bounded to 800 chunks and 12 MB per root. Ignored paths, secrets, sy
 
 Web results and snippets are untrusted external content. The model cannot add domains itself, make arbitrary fetches, bypass the approval, or claim a web search occurred when it was disabled or declined. This is deliberately a search-only capability; a future page-reader needs its own allowlist, size limits, sanitization and approval design.
 
+## Framework validation tools
+
+Before creating a task, `discover_validation_plan` detects installed TypeScript, test, lint, Next, Expo and Playwright capabilities without running package scripts. `inspect_native_project` maps Expo/React Native configuration, router, navigation and permission evidence. `run_ui_scenario` runs selected existing Playwright specs only after approval, in a disposable project copy with no network and no writes to the original workspace. Browser scenarios that require a dev server or real device remain unavailable under this restricted runner; the tool reports that failure instead of weakening the sandbox.
+
 ## Mandatory MCP guidance
 
 **MCP Workflow** and **MCP Security** are always enabled. Old settings gain both skills on load, settings updates cannot remove them, and the agent includes them even if an in-memory settings object omits them. The Skills page shows both as required with disabled toggles.
