@@ -6,7 +6,7 @@ import { webSearch, webSearchInput } from './web-search';
 import { inspectScene } from './react-three';
 import { discoverValidationPlan } from './validation-plan';
 import { inspectNativeProject } from './native-project';
-import { installPnpmDependencies, startLocalPreview } from './project-runtime';
+import { inspectLocalPreview, installPnpmDependencies, startLocalPreview } from './project-runtime';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { z } from 'zod';
@@ -91,6 +91,7 @@ const schemas = {
   inspect_native_project: z.object({}),
   install_pnpm_dependencies: z.object({}),
   start_local_preview: z.object({}),
+  inspect_local_preview: z.object({}),
   project_mental_model: z.object({}),
   typescript_project_analysis: z.object({}),
   inspect_feature: z.object({ query: z.string().min(2).max(200) }),
@@ -172,6 +173,8 @@ const descriptions: Record<keyof typeof schemas, string> = {
     'Run pnpm install with lifecycle scripts disabled, only after explicit approval. This may download packages from the configured pnpm registry. Use after the approved package.json changeset.',
   start_local_preview:
     'Start an installed Vite project on loopback port 4173 after approval, open its local URL in the default browser and return the URL. Requires existing node_modules.',
+  inspect_local_preview:
+    'Open the existing loopback Vite preview in a local headless browser after approval. Returns bounded DOM, controls, canvas count, console/network errors and a screenshot path. It does not interpret image pixels.',
   project_mental_model:
     'Return the detected React/React Native/Next architecture: frameworks, entrypoints, routes/screens, state, navigation, data boundaries and layers. Use this first when asked to understand a project.',
   typescript_project_analysis:
@@ -612,6 +615,9 @@ export class Agent {
                 await shell.openExternal(preview.url);
                 result = JSON.stringify({ ...preview, openedInBrowser: true });
               }
+            } else if (name === 'inspect_local_preview') {
+              const allow = await this.permission({ id: randomUUID(), kind: 'validation', title: 'Inspect the existing local preview in a headless browser and save a local screenshot.' });
+              result = allow ? JSON.stringify(await inspectLocalPreview('http://127.0.0.1:4173', this.store.directory, signal)) : 'Browser inspection was declined.';
             } else if (name === 'run_ui_scenario') {
               const args = schemas.run_ui_scenario.parse(call.function.arguments);
               const check = checkSchema.parse({ recipe: 'playwright.scenario', files: args.specs });
