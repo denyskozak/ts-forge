@@ -6,6 +6,7 @@ import { webSearch, webSearchInput } from './web-search';
 import { inspectScene } from './react-three';
 import { discoverValidationPlan } from './validation-plan';
 import { inspectNativeProject } from './native-project';
+import { installPnpmDependencies, startLocalPreview } from './project-runtime';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { z } from 'zod';
@@ -88,6 +89,8 @@ const schemas = {
     specs: z.array(z.string().min(1).max(500)).min(1).max(8),
   }),
   inspect_native_project: z.object({}),
+  install_pnpm_dependencies: z.object({}),
+  start_local_preview: z.object({}),
   project_mental_model: z.object({}),
   typescript_project_analysis: z.object({}),
   inspect_feature: z.object({ query: z.string().min(2).max(200) }),
@@ -165,6 +168,10 @@ const descriptions: Record<keyof typeof schemas, string> = {
     'Run selected existing Playwright spec files in a disposable snapshot after approval. Network is blocked and the original workspace is read-only. Reports browser/test failures; it cannot prove GPU rendering or a real device result.',
   inspect_native_project:
     'Inspect React Native or Expo configuration, router, navigation files and permission evidence. Read-only static analysis; read source configs before editing them.',
+  install_pnpm_dependencies:
+    'Run pnpm install with lifecycle scripts disabled, only after explicit approval. This may download packages from the configured pnpm registry. Use after the approved package.json changeset.',
+  start_local_preview:
+    'Start an installed Vite project on loopback port 4173 after approval, open its local URL in the default browser and return the URL. Requires existing node_modules.',
   project_mental_model:
     'Return the detected React/React Native/Next architecture: frameworks, entrypoints, routes/screens, state, navigation, data boundaries and layers. Use this first when asked to understand a project.',
   typescript_project_analysis:
@@ -593,6 +600,18 @@ export class Agent {
               result = JSON.stringify(await discoverValidationPlan(root, signal));
             } else if (name === 'inspect_native_project') {
               result = JSON.stringify(await inspectNativeProject(root, signal));
+            } else if (name === 'install_pnpm_dependencies') {
+              const allow = await this.permission({ id: randomUUID(), kind: 'validation', title: 'Run pnpm install with lifecycle scripts disabled. Packages may download from the configured registry.' });
+              result = allow ? JSON.stringify(await installPnpmDependencies(root, signal)) : 'Dependency install was declined.';
+            } else if (name === 'start_local_preview') {
+              const allow = await this.permission({ id: randomUUID(), kind: 'validation', title: 'Start this project’s Vite preview on local loopback port 4173.' });
+              if (!allow) result = 'Local preview was declined.';
+              else {
+                const preview = await startLocalPreview(root, signal);
+                const { shell } = await import('electron');
+                await shell.openExternal(preview.url);
+                result = JSON.stringify({ ...preview, openedInBrowser: true });
+              }
             } else if (name === 'run_ui_scenario') {
               const args = schemas.run_ui_scenario.parse(call.function.arguments);
               const check = checkSchema.parse({ recipe: 'playwright.scenario', files: args.specs });
