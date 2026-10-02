@@ -362,7 +362,7 @@ export const SKILLS: {
     description: 'Types that carry their weight. Strict by default.',
     tags: ['Strict types', 'Diagnostics', 'Refactoring'],
     instructions:
-      'Specialize in TypeScript. Inspect tsconfig.json and package.json first. Respect existing conventions. Prefer unknown over any, discriminated unions over assertions, and narrow types at system boundaries. Do not silence compiler errors. Make the smallest coherent change. Read a file before editing it. Verify changes with typecheck if available, and report what was and was not verified.',
+      'Specialize in TypeScript. TypeScript is the default for every new project and feature; do not ask the user to choose JavaScript versus TypeScript unless they explicitly request JavaScript or the existing project is JavaScript. Inspect tsconfig.json and package.json first. Respect existing conventions. Prefer unknown over any, discriminated unions over assertions, and narrow types at system boundaries. Do not silence compiler errors. Make the smallest coherent change. Read a file before editing it. Verify changes with typecheck if available, and report what was and was not verified.',
   },
   {
     id: 'react',

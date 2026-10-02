@@ -456,7 +456,7 @@ export class Agent {
       let understandingRepairs = 0;
       for (let step = 0; step < settings.maxSteps; step++) {
         signal.throwIfAborted();
-        this.status(`Thinking · step ${step + 1}/${settings.maxSteps}`);
+        this.status(`Model pass ${step + 1} of ${settings.maxSteps}`);
         const answer = await chat(
           settings.endpoint,
           {

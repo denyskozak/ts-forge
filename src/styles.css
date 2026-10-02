@@ -1726,11 +1726,25 @@ small {
   font-size: 10px;
 }
 .clarification-card {
+  position: relative;
   padding: 14px;
   margin-bottom: 13px;
-  border: 1px solid #4b4658;
+  border: 1px solid #8471ad;
   background: #211f28;
   border-radius: 9px;
+  animation: question-glow 2.2s ease-in-out infinite;
+}
+.clarification-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(178, 143, 255, .18), 0 0 28px rgba(142, 105, 221, .2);
+}
+@keyframes question-glow {
+  0%, 100% { border-color: #71608f; box-shadow: 0 0 10px rgba(142, 105, 221, .14); }
+  50% { border-color: #b18ae8; box-shadow: 0 0 26px rgba(157, 111, 243, .38); }
 }
 .clarification-heading {
   display: flex;

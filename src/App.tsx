@@ -120,6 +120,22 @@ export default function App() {
   const [workspaceMenu, setWorkspaceMenu] = useState(false);
   const endRef = useRef<HTMLDivElement>(null),
     promptRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!clarification) return;
+    const Audio = window.AudioContext ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Audio) return;
+    const context = new Audio();
+    const oscillator = context.createOscillator(), gain = context.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(740, context.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(980, context.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.055, context.currentTime + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.25);
+    oscillator.connect(gain).connect(context.destination);
+    oscillator.start(); oscillator.stop(context.currentTime + 0.26);
+    void context.close();
+  }, [clarification?.id]);
   const notify = useCallback(
     (error: unknown) => setToast(error instanceof Error ? error.message : String(error)),
     [],
@@ -622,7 +638,7 @@ export default function App() {
                     <TaskPanel task={task} sessionId={sessionId} busy={busy} onError={notify} />
                   )}
                   {clarification && (
-                    <div className="clarification-card" role="group" aria-label="Forge question">
+                    <div className="clarification-card" role="group" aria-label="Forge question" tabIndex={-1}>
                       <div className="clarification-heading">
                         <CircleHelp size={18} />
                         <div>
