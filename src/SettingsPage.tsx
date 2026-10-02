@@ -51,6 +51,23 @@ export default function SettingsPage({
       setTesting(false);
     }
   }
+  async function addDocumentationDirectory() {
+    try {
+      const selected = await api.pickPath('directory');
+      if (!selected || draft.rag.documentationPaths.includes(selected)) return;
+      update({
+        rag: { ...draft.rag, documentationPaths: [...draft.rag.documentationPaths, selected] },
+      });
+    } catch (error) {
+      setResult({
+        ok: false,
+        endpoint: draft.endpoint,
+        models: [],
+        latencyMs: 0,
+        message: (error as Error).message,
+      });
+    }
+  }
   return (
     <div className="page-inner">
       <div className="page-header">
@@ -209,6 +226,96 @@ export default function SettingsPage({
             </small>
           </label>
         </div>
+      </div>
+      <div className="settings-card">
+        <h3>
+          <HardDrive size={17} /> Local RAG & documentation
+        </h3>
+        <label className="settings-check">
+          <input
+            type="checkbox"
+            checked={draft.rag.enabled}
+            onChange={(e) => update({ rag: { ...draft.rag, enabled: e.target.checked } })}
+          />
+          Search the project and selected local documentation before using broad context
+        </label>
+        <label style={{ marginTop: 20 }}>
+          Local embedding model (optional)
+          <input
+            aria-label="Local embedding model"
+            value={draft.rag.embeddingModel}
+            placeholder="e.g. nomic-embed-text"
+            onChange={(e) => update({ rag: { ...draft.rag, embeddingModel: e.target.value } })}
+          />
+          <small>
+            Runs through your loopback Ollama endpoint. Leave empty for private lexical retrieval
+            with no embedding request.
+          </small>
+        </label>
+        <div className="settings-paths">
+          <strong>Documentation directories</strong>
+          <span>Only folders you add here are indexed. Files stay local.</span>
+          {draft.rag.documentationPaths.map((directory) => (
+            <div key={directory} className="settings-path">
+              <code>{directory}</code>
+              <button
+                onClick={() =>
+                  update({
+                    rag: {
+                      ...draft.rag,
+                      documentationPaths: draft.rag.documentationPaths.filter(
+                        (item) => item !== directory,
+                      ),
+                    },
+                  })
+                }
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          <button className="button" onClick={() => void addDocumentationDirectory()}>
+            Add documentation folder
+          </button>
+        </div>
+      </div>
+      <div className="settings-card">
+        <h3>
+          <ShieldCheck size={17} /> Optional web search
+        </h3>
+        <label className="settings-check">
+          <input
+            type="checkbox"
+            checked={draft.webSearch.enabled}
+            onChange={(e) =>
+              update({ webSearch: { ...draft.webSearch, enabled: e.target.checked } })
+            }
+          />
+          Allow approved web searches
+        </label>
+        <label style={{ marginTop: 20 }}>
+          Allowed documentation domains
+          <textarea
+            aria-label="Allowed web search domains"
+            rows={3}
+            value={draft.webSearch.allowedDomains.join('\n')}
+            onChange={(e) =>
+              update({
+                webSearch: {
+                  ...draft.webSearch,
+                  allowedDomains: e.target.value
+                    .split(/[\n,]/)
+                    .map((domain) => domain.trim().toLowerCase())
+                    .filter(Boolean),
+                },
+              })
+            }
+          />
+          <small>
+            Queries go to DuckDuckGo only after you approve the exact query. Forge returns HTTPS
+            results limited to these domains and never fetches result pages.
+          </small>
+        </label>
       </div>
       <button className="primary" onClick={() => onSave(draft)} disabled={testing}>
         <Check size={15} />

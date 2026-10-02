@@ -21,17 +21,17 @@ It builds a compact mental model of each workspace before a task, gives the mode
 
 ## What is already working
 
-| Area | Capability |
-| --- | --- |
-| **Local inference** | Connects to a tool-capable model through a loopback-only Ollama endpoint. |
-| **Project understanding** | Detects frameworks, entrypoints, routes, screens, state, navigation, data boundaries, and internal import relationships. |
+| Area                        | Capability                                                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **Local inference**         | Connects to a tool-capable model through a loopback-only Ollama endpoint.                                                       |
+| **Project understanding**   | Detects frameworks, entrypoints, routes, screens, state, navigation, data boundaries, and internal import relationships.        |
 | **TypeScript intelligence** | Provides diagnostics, definitions, references, quick info, project configuration analysis, and an isolated full compiler check. |
-| **Agent workflow** | Runs a bounded model/tool loop with streaming output, context compaction, stop handling, and persistent sessions. |
-| **Critical questions** | Lets the model pause with 2–4 answer choices when a missing decision can materially change the implementation. |
-| **Reviewed changes** | Uses exact source replacements, visible diffs, explicit approval, atomic writes, checkpoints, and guarded undo. |
-| **Multiple workspaces** | Saves local projects, switches between them, and refreshes analysis when a workspace opens. |
-| **Voice drafts** | Performs on-device speech recognition, shows a live waveform, and inserts the transcript without sending it. |
-| **Training lab** | Builds reviewed datasets and launches experimental MLX LoRA jobs in a separate local workspace. |
+| **Agent workflow**          | Runs a bounded model/tool loop with streaming output, context compaction, stop handling, and persistent sessions.               |
+| **Critical questions**      | Lets the model pause with 2–4 answer choices when a missing decision can materially change the implementation.                  |
+| **Reviewed changes**        | Uses exact source replacements, visible diffs, explicit approval, atomic writes, checkpoints, and guarded undo.                 |
+| **Multiple workspaces**     | Saves local projects, switches between them, and refreshes analysis when a workspace opens.                                     |
+| **Voice drafts**            | Performs on-device speech recognition, shows a live waveform, and inserts the transcript without sending it.                    |
+| **Training lab**            | Builds reviewed datasets and launches experimental MLX LoRA jobs in a separate local workspace.                                 |
 
 ## Why this harness exists
 
@@ -99,6 +99,20 @@ For example: “Add keyboard movement to the player; preserve the existing physi
 This is static evidence, not a runtime scene graph or GPU profiler. Each file is capped at 160 evidence items with explicit truncation; local shadowing, re-exports, custom wrappers, indirect callbacks and dynamic assets need additional reading. Review hints are hypotheses. No models, textures or shaders are downloaded or executed by the analyzer. TypeScript and existing tests remain available through validation recipes; rendering, device performance and physics behavior still require a real scene check.
 
 The built-in guidance draws on the official R3F documentation for [hooks](https://r3f.docs.pmnd.rs/api/hooks), [performance pitfalls](https://r3f.docs.pmnd.rs/advanced/pitfalls), [resource ownership](https://r3f.docs.pmnd.rs/api/objects), and [on-demand rendering](https://r3f.docs.pmnd.rs/advanced/scaling-performance). Forge does not fetch these pages during local analysis.
+
+## Local RAG and optional web search
+
+Forge has three separate knowledge paths:
+
+- **Project RAG** indexes allowed workspace source in bounded chunks and returns file/offset citations through `search_local_knowledge`.
+- **Documentation RAG** indexes only documentation directories selected in Settings. It never scans arbitrary folders or sends those files to a remote service.
+- **Web search** is disabled by default. When enabled, each exact query and its configured domain allowlist require a separate approval before leaving the device. Forge sends the query to DuckDuckGo HTML search, returns HTTPS results from allowed domains, and does not fetch result pages.
+
+Project and documentation RAG use local lexical ranking by default. Configure an installed Ollama embedding model such as `nomic-embed-text` to add local vector similarity; embedding batches go only to the existing loopback Ollama endpoint. If embeddings are unavailable, Forge reports the fallback and keeps retrieval local.
+
+Indexes are bounded to 800 chunks and 12 MB per root. Ignored paths, secrets, symlinks and unreadable files remain excluded under the normal workspace policy. Search excerpts are evidence, not authority: the agent must read original project files before editing and cite web URLs when it relies on search results.
+
+Web results and snippets are untrusted external content. The model cannot add domains itself, make arbitrary fetches, bypass the approval, or claim a web search occurred when it was disabled or declined. This is deliberately a search-only capability; a future page-reader needs its own allowlist, size limits, sanitization and approval design.
 
 ## Mandatory MCP guidance
 

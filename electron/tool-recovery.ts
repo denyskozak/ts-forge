@@ -12,6 +12,7 @@ const READ_ONLY_TOOLS = new Set([
   'inspect_scene',
   'contribution_guide',
   'typescript_query',
+  'search_local_knowledge',
 ]);
 
 /**

@@ -27,6 +27,30 @@ export const settingsSchema = z.object({
   contextTokens: z.number().int().min(4096).max(65536).default(16384),
   mapFormat: z.enum(['auto', 'compact', 'json', 'markdown']).default('auto'),
   speechLanguage: z.enum(['auto', 'ru-RU', 'en-US']).default('auto'),
+  rag: z
+    .object({
+      enabled: z.boolean().default(true),
+      embeddingModel: z.string().max(200).default(''),
+      documentationPaths: z.array(z.string().max(4000)).max(12).default([]),
+    })
+    .default(DEFAULT_SETTINGS.rag),
+  webSearch: z
+    .object({
+      enabled: z.boolean().default(false),
+      allowedDomains: z
+        .array(
+          z
+            .string()
+            .trim()
+            .toLowerCase()
+            .regex(/^[a-z0-9.-]+$/)
+            .max(253),
+        )
+        .min(1)
+        .max(20)
+        .default(DEFAULT_SETTINGS.webSearch.allowedDomains),
+    })
+    .default(DEFAULT_SETTINGS.webSearch),
 });
 const call = z.object({
   function: z.object({ name: z.string(), arguments: z.record(z.string(), z.unknown()) }),
@@ -89,7 +113,7 @@ const example = z.object({
 });
 const approval = z.object({
   id: z.string(),
-  kind: z.enum(['write', 'typecheck', 'changeset', 'validation']),
+  kind: z.enum(['write', 'typecheck', 'changeset', 'validation', 'web_search']),
   title: z.string(),
   change: changeSchema.optional(),
   changeSet: changeSetSchema.optional(),

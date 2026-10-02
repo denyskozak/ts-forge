@@ -98,6 +98,36 @@ export interface LLMMessage {
 export interface ToolCall {
   function: { name: string; arguments: Record<string, unknown> };
 }
+/** Uses Ollama only through the already validated loopback endpoint. */
+export async function embed(
+  endpoint: string,
+  model: string,
+  input: string[],
+  signal: AbortSignal,
+): Promise<number[][]> {
+  if (!model || !input.length) return [];
+  if (input.length > 32 || input.some((text) => text.length > 6000))
+    throw new Error('Embedding input exceeds the local batch limit.');
+  const response = await localFetch(endpoint, '/api/embed', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, input }),
+    signal,
+  });
+  if (!response.ok)
+    throw new Error(
+      `Local embedding request failed (${response.status}): ${(await response.text()).slice(0, 300)}`,
+    );
+  const result = z
+    .object({ embeddings: z.array(z.array(z.number().finite())) })
+    .parse(await response.json());
+  if (result.embeddings.length !== input.length || result.embeddings.some((row) => !row.length))
+    throw new Error('Local embedding runtime returned an invalid vector batch.');
+  const dimension = result.embeddings[0].length;
+  if (dimension > 4096 || result.embeddings.some((row) => row.length !== dimension))
+    throw new Error('Local embedding runtime returned incompatible vector dimensions.');
+  return result.embeddings;
+}
 export async function chat(
   endpoint: string,
   body: object,

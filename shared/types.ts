@@ -32,6 +32,15 @@ export interface Settings {
   contextTokens: number;
   mapFormat: 'auto' | 'compact' | 'json' | 'markdown';
   speechLanguage: 'auto' | 'ru-RU' | 'en-US';
+  rag: {
+    enabled: boolean;
+    embeddingModel: string;
+    documentationPaths: string[];
+  };
+  webSearch: {
+    enabled: boolean;
+    allowedDomains: string[];
+  };
 }
 export interface LocalModel {
   name: string;
@@ -98,7 +107,7 @@ export interface Change {
 }
 export interface Approval {
   id: string;
-  kind: 'write' | 'typecheck' | 'changeset' | 'validation';
+  kind: 'write' | 'typecheck' | 'changeset' | 'validation' | 'web_search';
   title: string;
   change?: Change;
   changeSet?: ChangeSet;
@@ -296,6 +305,11 @@ export const DEFAULT_SETTINGS: Settings = {
   contextTokens: 16384,
   mapFormat: 'auto',
   speechLanguage: 'auto',
+  rag: { enabled: true, embeddingModel: '', documentationPaths: [] },
+  webSearch: {
+    enabled: false,
+    allowedDomains: ['react.dev', 'nextjs.org', 'www.typescriptlang.org', 'r3f.docs.pmnd.rs'],
+  },
 };
 export const SKILLS: {
   id: SkillId;

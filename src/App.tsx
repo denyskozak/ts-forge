@@ -660,7 +660,9 @@ export default function App() {
                           ? 'Apply change'
                           : approval.kind === 'changeset'
                             ? 'Apply changeset'
-                            : 'Run check'}
+                            : approval.kind === 'web_search'
+                              ? 'Search web'
+                              : 'Run check'}
                         <Check size={14} />
                       </button>
                     </div>
