@@ -24,6 +24,8 @@ import { analyzeImpact, closeAnalysis, invalidateAnalysis } from './language-too
 import { Trainer, exportDataset } from './training';
 import { models, testConnection } from './provider';
 import { sshProfileSchema, testSsh } from './ssh';
+import { closeInteractiveBrowser } from './project-runtime';
+import { stopAllPackageProcesses } from './development-tools';
 import { listFiles, readText } from './workspace';
 import type { AgentEvent, ProjectMap, Workspace } from '../shared/types';
 let window: BrowserWindow;
@@ -203,9 +205,7 @@ app
     handle('test-ssh-profile', (profile) => {
       if (agent.busy || trainer.isRunning)
         throw new Error('Wait for the active task before testing SSH.');
-      return exclusive(() =>
-        testSsh(sshProfileSchema.parse(profile), AbortSignal.timeout(30000)),
-      );
+      return exclusive(() => testSsh(sshProfileSchema.parse(profile), AbortSignal.timeout(30000)));
     });
     handle('analyze-project', () =>
       exclusive(async () => {
@@ -518,6 +518,8 @@ app.on('before-quit', (event) => {
     while ((agent?.busy || trainer?.isRunning) && Date.now() - start < 6000)
       await new Promise((r) => setTimeout(r, 50));
     closeAnalysis();
+    stopAllPackageProcesses();
+    await closeInteractiveBrowser();
     await store?.flush();
   })().finally(() => app.quit());
 });

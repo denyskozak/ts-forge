@@ -119,7 +119,18 @@ export interface Change {
 }
 export interface Approval {
   id: string;
-  kind: 'write' | 'typecheck' | 'changeset' | 'validation' | 'web_search' | 'ssh';
+  kind:
+    | 'write'
+    | 'typecheck'
+    | 'changeset'
+    | 'validation'
+    | 'web_search'
+    | 'ssh'
+    | 'git'
+    | 'package'
+    | 'process'
+    | 'scaffold'
+    | 'browser';
   title: string;
   change?: Change;
   changeSet?: ChangeSet;

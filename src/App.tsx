@@ -108,7 +108,10 @@ export default function App() {
   const [prompt, setPrompt] = useState('');
   const [customAnswer, setCustomAnswer] = useState('');
   const [answerPending, setAnswerPending] = useState(false);
-  useEffect(() => { setCustomAnswer(''); setAnswerPending(false); }, [clarification?.id]);
+  useEffect(() => {
+    setCustomAnswer('');
+    setAnswerPending(false);
+  }, [clarification?.id]);
   const [rightOpen, setRightOpen] = useState(true);
   const [rightTab, setRightTab] = useState<'context' | 'changes'>('context'),
     [file, setFile] = useState<{ path: string; content: string }>();
@@ -125,11 +128,17 @@ export default function App() {
     promptRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     if (!clarification) return;
-    const Audio = window.AudioContext ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    const Audio =
+      window.AudioContext ??
+      (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Audio) return;
     const context = new Audio();
-    if (typeof context.createOscillator !== 'function') { void context.close().catch(() => {}); return; }
-    const oscillator = context.createOscillator(), gain = context.createGain();
+    if (typeof context.createOscillator !== 'function') {
+      void context.close().catch(() => {});
+      return;
+    }
+    const oscillator = context.createOscillator(),
+      gain = context.createGain();
     oscillator.type = 'sine';
     oscillator.frequency.setValueAtTime(740, context.currentTime);
     oscillator.frequency.exponentialRampToValueAtTime(980, context.currentTime + 0.12);
@@ -137,9 +146,14 @@ export default function App() {
     gain.gain.exponentialRampToValueAtTime(0.055, context.currentTime + 0.015);
     gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.25);
     oscillator.connect(gain).connect(context.destination);
-    oscillator.start(); oscillator.stop(context.currentTime + 0.26);
-    oscillator.onended = () => { void context.close(); };
-    return () => { void context.close().catch(() => {}); };
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.26);
+    oscillator.onended = () => {
+      void context.close();
+    };
+    return () => {
+      void context.close().catch(() => {});
+    };
   }, [clarification?.id]);
   const notify = useCallback(
     (error: unknown) => setToast(error instanceof Error ? error.message : String(error)),
@@ -364,7 +378,11 @@ export default function App() {
     if (!clarification || answerPending) return;
     setAnswerPending(true);
     try {
-      await api.answerClarification(clarification.id, optionId, optionId === 'custom' ? customAnswer.trim() : undefined);
+      await api.answerClarification(
+        clarification.id,
+        optionId,
+        optionId === 'custom' ? customAnswer.trim() : undefined,
+      );
       dispatchRun({ type: 'clarification-answered' });
     } catch (e) {
       notify(e);
@@ -646,7 +664,12 @@ export default function App() {
                     <TaskPanel task={task} sessionId={sessionId} busy={busy} onError={notify} />
                   )}
                   {clarification && (
-                    <div className="clarification-card" role="group" aria-label="Forge question" tabIndex={-1}>
+                    <div
+                      className="clarification-card"
+                      role="group"
+                      aria-label="Forge question"
+                      tabIndex={-1}
+                    >
                       <div className="clarification-heading">
                         <CircleHelp size={18} />
                         <div>
@@ -666,10 +689,30 @@ export default function App() {
                           </button>
                         ))}
                       </div>
-                      <form className="clarification-custom" onSubmit={(event) => { event.preventDefault(); void answerClarification('custom'); }}>
+                      <form
+                        className="clarification-custom"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          void answerClarification('custom');
+                        }}
+                      >
                         <label htmlFor="custom-answer">Or write your own answer</label>
-                        <textarea id="custom-answer" value={customAnswer} onChange={(event) => setCustomAnswer(event.target.value)} maxLength={2000} rows={2} disabled={answerPending} placeholder="Your answer…" />
-                        <button type="submit" className="primary" disabled={answerPending || !customAnswer.trim()}>Send answer</button>
+                        <textarea
+                          id="custom-answer"
+                          value={customAnswer}
+                          onChange={(event) => setCustomAnswer(event.target.value)}
+                          maxLength={2000}
+                          rows={2}
+                          disabled={answerPending}
+                          placeholder="Your answer…"
+                        />
+                        <button
+                          type="submit"
+                          className="primary"
+                          disabled={answerPending || !customAnswer.trim()}
+                        >
+                          Send answer
+                        </button>
                       </form>
                     </div>
                   )}
@@ -692,7 +735,17 @@ export default function App() {
                             ? 'Apply changeset'
                             : approval.kind === 'web_search'
                               ? 'Search web'
-                              : 'Run check'}
+                              : approval.kind === 'scaffold'
+                                ? 'Create project'
+                                : approval.kind === 'git'
+                                  ? 'Run Git action'
+                                  : approval.kind === 'package'
+                                    ? 'Change packages'
+                                    : approval.kind === 'process'
+                                      ? 'Start process'
+                                      : approval.kind === 'browser'
+                                        ? 'Open browser'
+                                        : 'Run check'}
                         <Check size={14} />
                       </button>
                     </div>

@@ -65,9 +65,11 @@ test('contribution discovery reads nested rules and templates, paginates and pre
   assert.equal(rest.nextOffset, null);
   assert.equal(rest.files.length, 4);
   assert.ok(rest.files.some((file) => file.path === 'packages/mobile/CONTRIBUTING.md'));
-  assert.equal(first.capabilities.commit, false);
-  assert.equal(first.capabilities.push, false);
-  assert.equal(first.capabilities.gitStatus, false);
+  assert.equal(first.capabilities.commit, true);
+  assert.equal(first.capabilities.push, true);
+  assert.equal(first.capabilities.gitStatus, true);
+  assert.equal(first.capabilities.fetch, false);
+  assert.equal(first.capabilities.publishPullRequest, false);
   const aborted = new AbortController();
   aborted.abort();
   await assert.rejects(contributionGuide(root, 0, 1, aborted.signal));
@@ -118,11 +120,13 @@ test('Git request injects capability limits and returns real contribution rules 
   };
   await new Agent(store, () => {}).run('Prepare a Git commit and pull request plan.');
   const system = requests[0].messages.find((message) => message.role === 'system')!.content;
-  assert.match(system, /has no Git executor/);
+  assert.match(system, /git_status, git_diff and git_log/);
+  assert.match(system, /git_stage_files/);
+  assert.match(system, /git_push with a confirmed remote and branch/);
   assert.match(system, /Mandatory MCP workflow/);
   assert.match(system, /Mandatory MCP trust boundaries/);
   assert.match(system, /has no MCP client/);
-  assert.match(system, /plain git commit includes the whole index/);
+  assert.match(system, /plain Git commit includes the whole index/);
   assert.match(system, /ready-to-use PR text/);
   const result = store.value.sessions[0].messages.find(
     (message) => message.name === 'contribution_guide',
@@ -130,7 +134,8 @@ test('Git request injects capability limits and returns real contribution rules 
   assert.ok(result);
   const guide = JSON.parse(result.content);
   assert.equal(guide.files[0].content, 'Use focused commits. Run npm test.');
-  assert.equal(guide.capabilities.push, false);
+  assert.equal(guide.capabilities.push, true);
+  assert.equal(guide.capabilities.publishPullRequest, false);
   assert.deepEqual(store.value.settings.skills, ['typescript']);
   assert.equal(store.value.sessions[0].changes?.length, 0);
 });

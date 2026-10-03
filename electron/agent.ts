@@ -6,7 +6,31 @@ import { webSearch, webSearchInput } from './web-search';
 import { inspectScene } from './react-three';
 import { discoverValidationPlan } from './validation-plan';
 import { inspectNativeProject } from './native-project';
-import { inspectLocalPreview, installPnpmDependencies, startLocalPreview } from './project-runtime';
+import {
+  browserClick,
+  browserFill,
+  browserOpen,
+  browserPress,
+  browserScreenshot,
+  browserSnapshot,
+  inspectLocalPreview,
+  installPnpmDependencies,
+  startLocalPreview,
+} from './project-runtime';
+import {
+  discoverPackageScripts,
+  gitCommit,
+  gitCreateBranch,
+  gitInspect,
+  gitPush,
+  gitStage,
+  listPackageProcesses,
+  mutatePackages,
+  projectTemplates,
+  scaffoldProject,
+  startPackageProcess,
+  stopPackageProcess,
+} from './development-tools';
 import { listRemote, testSsh, uploadSsh } from './ssh';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
@@ -27,7 +51,7 @@ import { createChangeSet, applyChangeSet } from './change-sets';
 import { checkSchema, contractInputSchema, taskOutcome, type TaskRecord } from '../shared/task';
 import { runValidation, workspaceFingerprint } from './validation';
 import { budgetMessages } from './context';
-import { queryTypes, analyzeImpact } from './language-tools';
+import { queryTypes, analyzeImpact, invalidateAnalysis } from './language-tools';
 import { inspectMentalModel, selectUnderstandingFiles, summarizeMentalModel } from './mental-model';
 import { recoverReadOnlyToolCall } from './tool-recovery';
 import type { Store } from './store';
@@ -93,6 +117,47 @@ const schemas = {
   install_pnpm_dependencies: z.object({}),
   start_local_preview: z.object({}),
   inspect_local_preview: z.object({}),
+  project_templates: z.object({}),
+  scaffold_project: z.object({
+    template: z.enum(['react', 'next', 'expo', 'r3f', 'api', 't3']),
+    name: z.string().min(1).max(63),
+  }),
+  package_scripts: z.object({}),
+  package_dependencies: z.object({
+    action: z.enum(['add', 'remove']),
+    packages: z.array(z.string().min(1).max(160)).min(1).max(20),
+    development: z.boolean().default(false),
+  }),
+  start_package_process: z.object({ script: z.string().min(1).max(100) }),
+  list_package_processes: z.object({}),
+  stop_package_process: z.object({ id: z.string().uuid() }),
+  browser_open: z.object({ url: z.string().url().max(500) }),
+  browser_snapshot: z.object({}),
+  browser_click: z.object({ selector: z.string().min(1).max(500) }),
+  browser_fill: z.object({ selector: z.string().min(1).max(500), value: z.string().max(5000) }),
+  browser_press: z.object({
+    key: z.enum([
+      'Enter',
+      'Escape',
+      'Tab',
+      'ArrowUp',
+      'ArrowDown',
+      'ArrowLeft',
+      'ArrowRight',
+      'Space',
+    ]),
+  }),
+  browser_screenshot: z.object({}),
+  git_status: z.object({}),
+  git_diff: z.object({ staged: z.boolean().default(false) }),
+  git_log: z.object({}),
+  git_create_branch: z.object({ branch: z.string().min(1).max(200) }),
+  git_stage_files: z.object({ files: z.array(z.string().min(1).max(500)).min(1).max(100) }),
+  git_commit: z.object({ message: z.string().min(3).max(200) }),
+  git_push: z.object({
+    remote: z.string().min(1).max(100).default('origin'),
+    branch: z.string().min(1).max(200),
+  }),
   ssh_profiles: z.object({}),
   ssh_test_connection: z.object({ profileId: z.string().uuid() }),
   ssh_list_directory: z.object({
@@ -117,10 +182,18 @@ const schemas = {
       .default('Your answer determines how this task should proceed.'),
     options: z
       .array(
-        z.union([z.string().trim().min(1).max(100).transform((label) => ({ label })), z.object({
-          label: z.string().min(1).max(100),
-          description: z.string().min(1).max(240).optional(),
-        })]),
+        z.union([
+          z
+            .string()
+            .trim()
+            .min(1)
+            .max(100)
+            .transform((label) => ({ label })),
+          z.object({
+            label: z.string().min(1).max(100),
+            description: z.string().min(1).max(240).optional(),
+          }),
+        ]),
       )
       .min(2)
       .max(4),
@@ -188,6 +261,36 @@ const descriptions: Record<keyof typeof schemas, string> = {
     'Start an installed Vite project on loopback port 4173 after approval, open its local URL in the default browser and return the URL. Requires existing node_modules.',
   inspect_local_preview:
     'Open the existing loopback Vite preview in a local headless browser after approval. Returns bounded DOM, controls, canvas count, console/network errors and a screenshot path. It does not interpret image pixels.',
+  project_templates:
+    'List supported pnpm-first TypeScript project templates and their official scaffold commands.',
+  scaffold_project:
+    'Scaffold a complete TypeScript project into an empty workspace with pnpm. Supports React, Next.js, Expo, R3F, Hono API and T3. Downloads and executes the official project generator after explicit approval.',
+  package_scripts: 'List package.json scripts and their exact commands without executing them.',
+  package_dependencies:
+    'Add or remove validated pnpm dependencies with lifecycle scripts disabled. Requires approval and may access the package registry.',
+  start_package_process:
+    'Start an existing package.json script as a managed development process after approval. Returns its id, logs and detected local URLs.',
+  list_package_processes: 'List managed project processes with recent logs, URLs and exit status.',
+  stop_package_process: 'Stop one managed process belonging to the active workspace.',
+  browser_open:
+    'Open a local HTTP preview in the managed headless browser after approval. External URLs are rejected.',
+  browser_snapshot:
+    'Read bounded text, accessible controls, console errors and failed requests from the open local preview.',
+  browser_click:
+    'Click the first element matching a CSS selector in the open local preview, then return a fresh snapshot.',
+  browser_fill: 'Fill a form control in the open local preview, then return a fresh snapshot.',
+  browser_press:
+    'Press one allowlisted keyboard key in the open local preview, then return a fresh snapshot.',
+  browser_screenshot:
+    'Save a full-page screenshot of the open local preview and return browser diagnostics.',
+  git_status: 'Read Git branch, index and working-tree status.',
+  git_diff: 'Read the current unstaged or staged Git patch and summary.',
+  git_log: 'Read the latest 20 local commits.',
+  git_create_branch: 'Create and switch to a validated branch after approval.',
+  git_stage_files: 'Stage only the explicitly listed allowed workspace files after approval.',
+  git_commit: 'Commit the currently staged changes with the exact approved message.',
+  git_push:
+    'Push an exact branch to an exact named remote after approval. Force push is unavailable.',
   ssh_profiles:
     'List user-configured SSH profiles without exposing private key contents. Use before every SSH operation.',
   ssh_test_connection:
@@ -259,9 +362,10 @@ export class Agent {
   answerClarification(id: string, optionId: string, text?: string) {
     if (this.pendingClarification?.clarification.id !== id)
       throw new Error('This question is no longer active.');
-    const answer = optionId === 'custom' ? { id: 'custom', label: z.string().trim().min(1).max(2000).parse(text) } : this.pendingClarification.clarification.options.find(
-      (option) => option.id === optionId,
-    );
+    const answer =
+      optionId === 'custom'
+        ? { id: 'custom', label: z.string().trim().min(1).max(2000).parse(text) }
+        : this.pendingClarification.clarification.options.find((option) => option.id === optionId);
     if (!answer) throw new Error('Choose one of the available answers.');
     this.pendingClarification.resolve(answer);
     this.pendingClarification = undefined;
@@ -479,8 +583,15 @@ export class Agent {
           ...(m.name ? { tool_name: m.name } : {}),
         })),
       ];
-      messages.splice(1, 0, { role: 'system', content: 'Defaults for new projects: TypeScript, pnpm. Do not ask the user to choose these or reconfirm requested file creation. An implementation request requires real file edits and validation. Questions are only for critical missing decisions; users can choose an option or supply their own answer. On a tool schema error, repair the arguments and call the same tool instead of printing JSON or inventing a tool name.' });
-      const implementationRequested = /(?:созда[йт]|собер[иёе]|реализ|добав|исправ|implement|build|create|fix|add\s)/i.test(prompt) && !readOnlyProjectUnderstanding;
+      messages.splice(1, 0, {
+        role: 'system',
+        content:
+          'Defaults for new projects: TypeScript and pnpm. For an empty workspace and a new-project request, inspect project_templates and use scaffold_project when a supported recipe matches. For an existing project, edit through apply_changeset. Discover package scripts before starting one. After implementation, run relevant checks, start the real dev process when useful, open its returned loopback URL with browser_open, and use browser_snapshot/click/fill/press/screenshot to verify observable behavior. Use package_dependencies for explicit dependency changes. Inspect Git freely, but create branches, stage, commit or push only when the user requested Git delivery. Do not ask the user to reconfirm requested file creation. An implementation request requires real file edits or a successful scaffold and validation. Questions are only for critical missing decisions; users can choose an option or supply their own answer. On a tool schema error, repair the arguments and call the same tool instead of printing JSON or inventing a tool name.',
+      });
+      const implementationRequested =
+        /(?:созда[йт]|собер[иёе]|реализ|добав|исправ|implement|build|create|fix|add\s)/i.test(
+          prompt,
+        ) && !readOnlyProjectUnderstanding;
       let executionRepairs = 0;
       let understandingRepairs = 0;
       for (let step = 0; step < settings.maxSteps; step++) {
@@ -516,7 +627,11 @@ export class Agent {
         }
         if (!answer.tool_calls?.length && implementationRequested && !task.appliedChanges) {
           if (!this.actionDeclined && executionRepairs++ < 2 && step < settings.maxSteps - 1) {
-            messages.push(answer, { role: 'system', content: 'No changes were applied. The implementation is not complete. Use plan_task and file tools to implement the request. If an action was denied, respect the denial and explain the blocker; do not ask for it again.' });
+            messages.push(answer, {
+              role: 'system',
+              content:
+                'No changes were applied. The implementation is not complete. Use plan_task and file tools to implement the request. If an action was denied, respect the denial and explain the blocker; do not ask for it again.',
+            });
             delete this.store.value.activeRun!.stream;
             continue;
           }
@@ -642,10 +757,21 @@ export class Agent {
             } else if (name === 'inspect_native_project') {
               result = JSON.stringify(await inspectNativeProject(root, signal));
             } else if (name === 'install_pnpm_dependencies') {
-              const allow = await this.permission({ id: randomUUID(), kind: 'validation', title: 'Run pnpm install with lifecycle scripts disabled. Packages may download from the configured registry.' });
-              result = allow ? JSON.stringify(await installPnpmDependencies(root, signal)) : 'Dependency install was declined.';
+              const allow = await this.permission({
+                id: randomUUID(),
+                kind: 'validation',
+                title:
+                  'Run pnpm install with lifecycle scripts disabled. Packages may download from the configured registry.',
+              });
+              result = allow
+                ? JSON.stringify(await installPnpmDependencies(root, signal))
+                : 'Dependency install was declined.';
             } else if (name === 'start_local_preview') {
-              const allow = await this.permission({ id: randomUUID(), kind: 'validation', title: 'Start this project’s Vite preview on local loopback port 4173.' });
+              const allow = await this.permission({
+                id: randomUUID(),
+                kind: 'validation',
+                title: 'Start this project’s Vite preview on local loopback port 4173.',
+              });
               if (!allow) result = 'Local preview was declined.';
               else {
                 const preview = await startLocalPreview(root, signal);
@@ -654,34 +780,187 @@ export class Agent {
                 result = JSON.stringify({ ...preview, openedInBrowser: true });
               }
             } else if (name === 'inspect_local_preview') {
-              const allow = await this.permission({ id: randomUUID(), kind: 'validation', title: 'Inspect the existing local preview in a headless browser and save a local screenshot.' });
-              result = allow ? JSON.stringify(await inspectLocalPreview('http://127.0.0.1:4173', this.store.directory, signal)) : 'Browser inspection was declined.';
+              const allow = await this.permission({
+                id: randomUUID(),
+                kind: 'validation',
+                title:
+                  'Inspect the existing local preview in a headless browser and save a local screenshot.',
+              });
+              result = allow
+                ? JSON.stringify(
+                    await inspectLocalPreview(
+                      'http://127.0.0.1:4173',
+                      this.store.directory,
+                      signal,
+                    ),
+                  )
+                : 'Browser inspection was declined.';
+            } else if (name === 'project_templates') {
+              result = JSON.stringify(projectTemplates);
+            } else if (name === 'scaffold_project') {
+              const args = schemas.scaffold_project.parse(call.function.arguments);
+              const allow = await this.permission({
+                id: randomUUID(),
+                kind: 'scaffold',
+                title: `Create a ${args.template} project named ${args.name} in this empty workspace using pnpm`,
+              });
+              if (!allow) result = 'Project scaffolding was declined.';
+              else {
+                result = JSON.stringify(
+                  await scaffoldProject(root, args.template, args.name, signal),
+                );
+                invalidateAnalysis(root);
+                task.appliedChanges += 1;
+                task.fingerprint = await workspaceFingerprint(root, signal).catch(() => '');
+                await publishTask();
+              }
+            } else if (name === 'package_scripts') {
+              result = JSON.stringify(await discoverPackageScripts(root));
+            } else if (name === 'package_dependencies') {
+              const args = schemas.package_dependencies.parse(call.function.arguments);
+              const allow = await this.permission({
+                id: randomUUID(),
+                kind: 'package',
+                title: `${args.action === 'add' ? 'Add' : 'Remove'} pnpm packages: ${args.packages.join(', ')} (lifecycle scripts disabled)`,
+              });
+              result = allow
+                ? JSON.stringify(
+                    await mutatePackages(
+                      root,
+                      args.action,
+                      args.packages,
+                      args.development,
+                      signal,
+                    ),
+                  )
+                : 'Package change was declined.';
+              if (allow) {
+                task.appliedChanges += 1;
+                task.fingerprint = await workspaceFingerprint(root, signal).catch(() => '');
+                await publishTask();
+              }
+            } else if (name === 'start_package_process') {
+              const args = schemas.start_package_process.parse(call.function.arguments);
+              const scripts = await discoverPackageScripts(root);
+              const command = scripts.scripts.find((item) => item.name === args.script)?.command;
+              if (!command) throw new Error(`package.json has no “${args.script}” script.`);
+              const allow = await this.permission({
+                id: randomUUID(),
+                kind: 'process',
+                title: `Start pnpm run ${args.script} (${command})`,
+              });
+              result = allow
+                ? JSON.stringify(await startPackageProcess(root, args.script))
+                : 'Process start was declined.';
+            } else if (name === 'list_package_processes') {
+              result = JSON.stringify(listPackageProcesses(root));
+            } else if (name === 'stop_package_process') {
+              const args = schemas.stop_package_process.parse(call.function.arguments);
+              result = JSON.stringify(stopPackageProcess(root, args.id));
+            } else if (name === 'browser_open') {
+              const args = schemas.browser_open.parse(call.function.arguments);
+              const allow = await this.permission({
+                id: randomUUID(),
+                kind: 'browser',
+                title: `Open and interact with local preview ${args.url}`,
+              });
+              result = allow
+                ? JSON.stringify(await browserOpen(args.url, signal))
+                : 'Browser access was declined.';
+            } else if (name === 'browser_snapshot') {
+              result = JSON.stringify(await browserSnapshot());
+            } else if (name === 'browser_click') {
+              const args = schemas.browser_click.parse(call.function.arguments);
+              result = JSON.stringify(await browserClick(args.selector));
+            } else if (name === 'browser_fill') {
+              const args = schemas.browser_fill.parse(call.function.arguments);
+              result = JSON.stringify(await browserFill(args.selector, args.value));
+            } else if (name === 'browser_press') {
+              const args = schemas.browser_press.parse(call.function.arguments);
+              result = JSON.stringify(await browserPress(args.key));
+            } else if (name === 'browser_screenshot') {
+              result = JSON.stringify(await browserScreenshot(this.store.directory));
+            } else if (name === 'git_status' || name === 'git_diff' || name === 'git_log') {
+              const args =
+                name === 'git_diff' ? schemas.git_diff.parse(call.function.arguments) : undefined;
+              result = JSON.stringify(
+                await gitInspect(root, name.slice(4) as 'status' | 'diff' | 'log', args?.staged),
+              );
+            } else if (name === 'git_create_branch') {
+              const args = schemas.git_create_branch.parse(call.function.arguments);
+              const allow = await this.permission({
+                id: randomUUID(),
+                kind: 'git',
+                title: `Create and switch to Git branch ${args.branch}`,
+              });
+              result = allow
+                ? JSON.stringify(await gitCreateBranch(root, args.branch))
+                : 'Branch creation was declined.';
+            } else if (name === 'git_stage_files') {
+              const args = schemas.git_stage_files.parse(call.function.arguments);
+              const allow = await this.permission({
+                id: randomUUID(),
+                kind: 'git',
+                title: `Stage ${args.files.length} explicit file${args.files.length === 1 ? '' : 's'}: ${args.files.join(', ')}`,
+              });
+              result = allow
+                ? JSON.stringify(await gitStage(root, args.files))
+                : 'Staging was declined.';
+            } else if (name === 'git_commit') {
+              const args = schemas.git_commit.parse(call.function.arguments);
+              const allow = await this.permission({
+                id: randomUUID(),
+                kind: 'git',
+                title: `Commit staged changes as “${args.message}”`,
+              });
+              result = allow
+                ? JSON.stringify(await gitCommit(root, args.message))
+                : 'Commit was declined.';
+            } else if (name === 'git_push') {
+              const args = schemas.git_push.parse(call.function.arguments);
+              const allow = await this.permission({
+                id: randomUUID(),
+                kind: 'git',
+                title: `Push ${args.branch} to ${args.remote} and set upstream`,
+              });
+              result = allow
+                ? JSON.stringify(await gitPush(root, args.remote, args.branch, signal))
+                : 'Push was declined.';
             } else if (name === 'ssh_profiles') {
-              result = JSON.stringify(settings.sshProfiles.map(({ keyPath, ...profile }) => ({
-                ...profile,
-                keyConfigured: Boolean(keyPath),
-              })));
-            } else if (name === 'ssh_test_connection' || name === 'ssh_list_directory' || name === 'ssh_upload_files') {
-              const base = z.object({ profileId: z.string().uuid() }).parse(call.function.arguments);
+              result = JSON.stringify(
+                settings.sshProfiles.map(({ keyPath, ...profile }) => ({
+                  ...profile,
+                  keyConfigured: Boolean(keyPath),
+                })),
+              );
+            } else if (
+              name === 'ssh_test_connection' ||
+              name === 'ssh_list_directory' ||
+              name === 'ssh_upload_files'
+            ) {
+              const base = z
+                .object({ profileId: z.string().uuid() })
+                .parse(call.function.arguments);
               const profile = settings.sshProfiles.find((item) => item.id === base.profileId);
               if (!profile) throw new Error('SSH profile not found in Settings.');
-              const operation = name === 'ssh_test_connection'
-                ? { title: `Test SSH connection to ${profile.user}@${profile.host}` }
-                : name === 'ssh_list_directory'
-                  ? (() => {
-                      const args = schemas.ssh_list_directory.parse(call.function.arguments);
-                      return {
-                        args,
-                        title: `List ${profile.user}@${profile.host}:${args.path}`,
-                      };
-                    })()
-                  : (() => {
-                      const args = schemas.ssh_upload_files.parse(call.function.arguments);
-                      return {
-                        args,
-                        title: `Upload ${args.localPaths.length} reviewed file${args.localPaths.length === 1 ? '' : 's'} to ${profile.user}@${profile.host}:${args.remoteDirectory}`,
-                      };
-                    })();
+              const operation =
+                name === 'ssh_test_connection'
+                  ? { title: `Test SSH connection to ${profile.user}@${profile.host}` }
+                  : name === 'ssh_list_directory'
+                    ? (() => {
+                        const args = schemas.ssh_list_directory.parse(call.function.arguments);
+                        return {
+                          args,
+                          title: `List ${profile.user}@${profile.host}:${args.path}`,
+                        };
+                      })()
+                    : (() => {
+                        const args = schemas.ssh_upload_files.parse(call.function.arguments);
+                        return {
+                          args,
+                          title: `Upload ${args.localPaths.length} reviewed file${args.localPaths.length === 1 ? '' : 's'} to ${profile.user}@${profile.host}:${args.remoteDirectory}`,
+                        };
+                      })();
               const allow = await this.permission({
                 id: randomUUID(),
                 kind: 'ssh',
@@ -705,11 +984,22 @@ export class Agent {
               const allow = await this.permission({
                 id: randomUUID(),
                 kind: 'validation',
-                title: 'Run selected Playwright UI scenarios in a disposable copy: no network or workspace writes.',
+                title:
+                  'Run selected Playwright UI scenarios in a disposable copy: no network or workspace writes.',
               });
-              const receipt = allow && !signal.aborted
-                ? await runValidation(root, this.store.directory, check, signal)
-                : { ...check, id: randomUUID(), fingerprint: '', startedAt: Date.now(), durationMs: 0, status: 'declined' as const, exitCode: null, output: 'User declined; no UI scenario ran.' };
+              const receipt =
+                allow && !signal.aborted
+                  ? await runValidation(root, this.store.directory, check, signal)
+                  : {
+                      ...check,
+                      id: randomUUID(),
+                      fingerprint: '',
+                      startedAt: Date.now(),
+                      durationMs: 0,
+                      status: 'declined' as const,
+                      exitCode: null,
+                      output: 'User declined; no UI scenario ran.',
+                    };
               task.validations.push(receipt);
               task.fingerprint = await workspaceFingerprint(root, signal).catch(() => '');
               await publishTask();
@@ -974,11 +1264,14 @@ export class Agent {
       }
       signal.throwIfAborted();
       if (implementationRequested && !task.appliedChanges) task.outcome = 'failed';
-      task.outcome = task.outcome === 'failed' ? 'failed' : task.appliedChanges
-        ? taskOutcome(task)
-        : readOnlyProjectUnderstanding
-          ? 'analysis_only'
-          : 'completed_unverified';
+      task.outcome =
+        task.outcome === 'failed'
+          ? 'failed'
+          : task.appliedChanges
+            ? taskOutcome(task)
+            : readOnlyProjectUnderstanding
+              ? 'analysis_only'
+              : 'completed_unverified';
       await publishTask();
       this.store.value.activeRun!.status = task.outcome === 'failed' ? 'failed' : 'completed';
     } catch (error) {

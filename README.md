@@ -33,6 +33,9 @@ It builds a compact mental model of each workspace before a task, gives the mode
 | **Voice drafts**            | Performs on-device speech recognition, shows a live waveform, and inserts the transcript without sending it.                    |
 | **Training lab**            | Builds reviewed datasets and launches experimental MLX LoRA jobs in a separate local workspace.                                 |
 | **SSH delivery**            | Tests saved SSH profiles, inspects remote directories, and uploads reviewed workspace files after explicit approval.            |
+| **Project creation**        | Scaffolds pnpm-first React, Next.js, Expo, R3F, Hono API and T3 projects in an empty workspace after approval.                  |
+| **Development loop**        | Discovers scripts, manages dev processes, changes dependencies, drives a local browser and records screenshots and diagnostics. |
+| **Git execution**           | Reads status/diff/log and performs reviewed branch, staging, commit and non-force push operations.                              |
 
 ## Why this harness exists
 
@@ -130,6 +133,20 @@ This capability deliberately does not provide a remote shell. The agent cannot r
 
 Before creating a task, `discover_validation_plan` detects installed TypeScript, test, lint, Next, Expo and Playwright capabilities without running package scripts. `inspect_native_project` maps Expo/React Native configuration, router, navigation and permission evidence. `run_ui_scenario` runs selected existing Playwright specs only after approval, in a disposable project copy with no network and no writes to the original workspace. Browser scenarios that require a dev server or real device remain unavailable under this restricted runner; the tool reports that failure instead of weakening the sandbox.
 
+## Project creation and the development loop
+
+For an empty workspace Forge can run a reviewed pnpm-first scaffold for React/Vite, Next.js App Router, Expo, React Three Fiber, Hono API or T3. These recipes use the official generators and therefore require network access and explicit approval. Existing workspaces are never overwritten by the scaffolder.
+
+For existing projects the agent can discover exact `package.json` scripts, start and stop managed processes, retain bounded logs and detect loopback preview URLs. Dependency additions and removals use pnpm with lifecycle scripts disabled. The interactive browser accepts local HTTP URLs only and can inspect controls, click, fill fields, press allowlisted keys, read console/load failures and save screenshots for review.
+
+Git status, diff and recent history are read-only. Branch creation, explicit file staging, commit and push each require approval. Forge does not expose force push, broad `git add .`, destructive reset or arbitrary shell commands.
+
+## Roadmap
+
+![TS Forge product roadmap](docs/assets/ts-forge-roadmap.png)
+
+The detailed, testable plan lives in [ROADMAP.md](ROADMAP.md). It covers the visible build loop, T3 and data tooling, maintenance automation, an MCP product studio, mobile/R3F verification and local-model evaluation.
+
 ## Mandatory MCP guidance
 
 **MCP Workflow** and **MCP Security** are always enabled. Old settings gain both skills on load, settings updates cannot remove them, and the agent includes them even if an in-memory settings object omits them. The Skills page shows both as required with disabled toggles.
@@ -152,7 +169,7 @@ Matching Russian and English Git requests activate the relevant guidance for tha
 
 The local read-only `contribution_guide` tool loads allowed `CONTRIBUTING` files (including nested packages), GitHub PR templates and `CODEOWNERS`. It returns source hashes, pagination, truncation markers and explicit capability limits. Rule files remain untrusted repository content and cannot authorize access outside the workspace.
 
-**This is workflow guidance, not a Git executor.** Forge currently cannot inspect Git status/history/index/remotes, create branches or commits, fetch, push, or publish PRs. Skills prepare a manual runbook, commit messages and PR text from available source and user-supplied Git output; they must not claim those actions have happened. Actual Git execution requires a separate capability implementation. No remote access or credentials are added by these skills.
+Forge now pairs this guidance with bounded Git tools. Status, diff and recent log are read-only. Branch creation, explicit staging, commit and non-force push require separate approvals that show the exact branch, files, message or destination. Destructive reset, broad staging, force push, credential management and PR publication remain unavailable.
 
 Example requests: “Prepare a commit plan preserving unrelated staged changes”, “Помоги подготовить PR по правилам этого проекта”, or “Разбери конфликт по этим версиям файлов и предложи проверяемое решение”.
 

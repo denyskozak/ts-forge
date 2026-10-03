@@ -16,6 +16,13 @@ const READ_ONLY_TOOLS = new Set([
   'discover_validation_plan',
   'inspect_native_project',
   'ssh_profiles',
+  'project_templates',
+  'package_scripts',
+  'list_package_processes',
+  'browser_snapshot',
+  'git_status',
+  'git_diff',
+  'git_log',
 ]);
 
 /**

@@ -116,7 +116,19 @@ const example = z.object({
 });
 const approval = z.object({
   id: z.string(),
-  kind: z.enum(['write', 'typecheck', 'changeset', 'validation', 'web_search', 'ssh']),
+  kind: z.enum([
+    'write',
+    'typecheck',
+    'changeset',
+    'validation',
+    'web_search',
+    'ssh',
+    'git',
+    'package',
+    'process',
+    'scaffold',
+    'browser',
+  ]),
   title: z.string(),
   change: changeSchema.optional(),
   changeSet: changeSetSchema.optional(),
