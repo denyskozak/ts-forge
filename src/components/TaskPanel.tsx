@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { checkKey, type TaskRecord, type ImpactReport, type ChangeSet } from '../../shared/task';
 import { api } from '../api';
+import { Button, Checkbox, Disclosure } from './ui';
 export function ImpactPreview({
   impact,
   onRead,
@@ -15,43 +16,39 @@ export function ImpactPreview({
         {impact.affected.length} affected files · {impact.tests.length} related tests ·{' '}
         {impact.exports.length} exported symbols
       </p>
-      <details>
-        <summary>Consumers and tests</summary>
+      <Disclosure title="Consumers and tests">
         {impact.affected.map((file) => (
-          <button key={file} onClick={() => onRead(file)}>
+          <Button key={file} onClick={() => onRead(file)}>
             {file}
             {impact.tests.includes(file) ? ' · test' : ''}
-          </button>
+          </Button>
         ))}
-      </details>
+      </Disclosure>
       {!!impact.exports.length && (
-        <details>
-          <summary>Changed file exports</summary>
+        <Disclosure title="Changed file exports">
           {impact.exports.map((item) => (
             <p key={`${item.path}:${item.name}`}>
               {item.path} → {item.name}
             </p>
           ))}
-        </details>
+        </Disclosure>
       )}
       {!!impact.boundaries.length && (
-        <details>
-          <summary>Boundaries to review</summary>
+        <Disclosure title="Boundaries to review">
           {impact.boundaries.map((item) => (
             <p key={`${item.path}:${item.reason}`}>
               {item.path}: {item.reason}
             </p>
           ))}
-        </details>
+        </Disclosure>
       )}
-      <details>
-        <summary>Evidence: import edges</summary>
+      <Disclosure title="Evidence: import edges">
         {impact.edges.map((edge) => (
-          <button key={`${edge.from}:${edge.line}:${edge.to}`} onClick={() => onRead(edge.from)}>
+          <Button key={`${edge.from}:${edge.line}:${edge.to}`} onClick={() => onRead(edge.from)}>
             {edge.from}:{edge.line} → {edge.to}
-          </button>
+          </Button>
         ))}
-      </details>
+      </Disclosure>
       <small>{impact.warnings.join(' ')}</small>
     </section>
   );
@@ -68,6 +65,7 @@ export function TaskPanel({
   onError: (error: unknown) => void;
 }) {
   const [working, setWorking] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const action = async (operation: () => Promise<unknown>) => {
     setWorking(true);
     try {
@@ -79,10 +77,15 @@ export function TaskPanel({
     }
   };
   return (
-    <details className="task-panel" open={task.outcome === 'in_progress' ? undefined : true}>
-      <summary>
+    <Disclosure
+      className="task-panel"
+      open={task.outcome !== 'in_progress' || expanded}
+      onOpenChange={setExpanded}
+      title={
+      <>
         Task contract <span>{task.outcome.replaceAll('_', ' ')}</span>
-      </summary>
+      </>
+    }>
       <p>{task.goal}</p>
       {!!task.constraints.length && (
         <p>
@@ -97,8 +100,7 @@ export function TaskPanel({
       <strong>Acceptance criteria</strong>
       {task.criteria.map((criterion) => (
         <label key={criterion.id} className="task-criterion">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={!!task.fingerprint && criterion.acceptedFingerprint === task.fingerprint}
             disabled={
               busy ||
@@ -106,7 +108,7 @@ export function TaskPanel({
               !sessionId ||
               ['failed', 'stopped', 'in_progress'].includes(task.outcome)
             }
-            onChange={() => void action(() => api.acceptCriterion(sessionId!, criterion.id))}
+            onCheckedChange={() => void action(() => api.acceptCriterion(sessionId!, criterion.id))}
           />
           <span>{criterion.description}</span>
         </label>
@@ -132,17 +134,16 @@ export function TaskPanel({
               <b>{status}</b>
             </div>
             {!!check.files.length && <small>{check.files.join(', ')}</small>}
-            <button
+            <Button
               disabled={busy || working || !sessionId}
               onClick={() => void action(() => api.validateTask(sessionId!, index))}
             >
               Run isolated check
-            </button>
+            </Button>
             {result && (
-              <details>
-                <summary>Result · {result.durationMs} ms</summary>
+              <Disclosure title={`Result · ${result.durationMs} ms`}>
                 <pre>{result.output}</pre>
-              </details>
+              </Disclosure>
             )}
           </div>
         );
@@ -151,7 +152,7 @@ export function TaskPanel({
         Checks execute installed project tools/config in a temporary copy. Network and original
         workspace writes are denied.
       </small>
-    </details>
+    </Disclosure>
   );
 }
 export function ChangeSetSummary({
@@ -174,7 +175,7 @@ export function ChangeSetSummary({
       <p>{set.rationale}</p>
       {set.impact && <ImpactPreview impact={set.impact} onRead={onRead} />}
       {set.status === 'applied' && (
-        <button
+        <Button
           disabled={busy || working}
           onClick={async () => {
             setWorking(true);
@@ -188,7 +189,7 @@ export function ChangeSetSummary({
           }}
         >
           Undo changeset
-        </button>
+        </Button>
       )}
     </section>
   );

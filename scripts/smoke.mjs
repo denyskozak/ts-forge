@@ -254,12 +254,14 @@ try {
   assert.notEqual((await page.evaluate(() => window.forge.state())).settings.endpoint, endpoint);
   await page.getByRole('button', { name: 'Add SSH server', exact: true }).click();
   const sshCredentials = page.getByRole('combobox', { name: 'Credentials' });
-  await expect(sshCredentials).toHaveValue('system');
-  await sshCredentials.selectOption('key');
+  await expect(sshCredentials).toContainText('System SSH config / agent');
+  await sshCredentials.click();
+  await page.getByRole('option', { name: 'Private key file', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Choose key', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Remove', exact: true }).click();
   await page.screenshot({ path: 'docs/forge-settings.png' });
-  await page.getByLabel('Map format').selectOption('compact');
+  await page.getByRole('combobox', { name: 'Map format' }).click();
+  await page.getByRole('option', { name: 'Compact text', exact: true }).click();
   await page.getByRole('button', { name: 'Save settings' }).click();
   await expect
     .poll(() => page.evaluate(() => window.forge.state().then((s) => s.settings.endpoint)))
@@ -323,7 +325,7 @@ try {
     [],
   );
   assert.match(await readFile(path.join(project, 'index.ts'), 'utf8'), /"forge"/);
-  await page.getByRole('button', { name: /^Changes/ }).click();
+  await page.getByRole('tab', { name: /^Changes/ }).click();
   await page.getByRole('button', { name: 'Undo change', exact: true }).click();
   await expect
     .poll(() =>
@@ -349,7 +351,7 @@ try {
   assert.equal(featureState.sessions[0].task.outcome, 'completed_unverified');
   assert.equal(featureState.sessions[0].task.validations.at(-1).status, 'passed');
   assert.match(await readFile(path.join(project, 'index.ts'), 'utf8'), /import/);
-  const checkboxes = page.locator('.task-criterion input');
+  const checkboxes = page.locator('.task-criterion [role="checkbox"]');
   for (let index = 0; index < (await checkboxes.count()); index++) {
     await checkboxes.nth(index).click();
     await expect(checkboxes.nth(index)).toBeChecked();
@@ -358,7 +360,7 @@ try {
     .poll(() => page.evaluate(() => window.forge.state().then((s) => s.sessions[0].task.outcome)))
     .toBe('completed_verified');
   await page.screenshot({ path: 'docs/forge-task-verified.png' });
-  await page.getByRole('button', { name: /^Changes/ }).click();
+  await page.getByRole('tab', { name: /^Changes/ }).click();
   await page.getByRole('button', { name: 'Undo changeset', exact: true }).click();
   await expect.poll(() => readFile(path.join(project, 'index.ts'), 'utf8')).toBe(original);
   await assert.rejects(readFile(path.join(project, 'feature.ts'), 'utf8'));
@@ -368,9 +370,9 @@ try {
   );
   await page.getByRole('button', { name: 'Skills', exact: true }).click();
   for (const name of ['MCP Workflow', 'MCP Security']) {
-    const toggle = page.getByRole('button', { name: `Toggle ${name}`, exact: true });
+    const toggle = page.getByRole('switch', { name: `Toggle ${name}`, exact: true });
     await expect(toggle).toBeDisabled();
-    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(toggle).toBeChecked();
   }
   const normalized = await page.evaluate(async () => {
     const state = await window.forge.state();
@@ -381,7 +383,7 @@ try {
   });
   assert.ok(normalized.skills.includes('mcp-workflow'));
   assert.ok(normalized.skills.includes('mcp-security'));
-  await page.getByRole('button', { name: 'Toggle React Three Fiber' }).click();
+  await page.getByRole('switch', { name: 'Toggle React Three Fiber' }).click();
   assert.ok(
     (await page.evaluate(() => window.forge.state())).settings.skills.includes('react-three'),
   );
@@ -390,7 +392,7 @@ try {
     ['Git Review', 'git-review'],
     ['Contributing', 'contributing'],
   ]) {
-    await page.getByRole('button', { name: `Toggle ${name}`, exact: true }).click();
+    await page.getByRole('switch', { name: `Toggle ${name}`, exact: true }).click();
     await expect
       .poll(() =>
         page.evaluate(
@@ -401,7 +403,7 @@ try {
       )
       .toBe(true);
   }
-  await page.getByRole('button', { name: 'Toggle Next.js' }).click();
+  await page.getByRole('switch', { name: 'Toggle Next.js' }).click();
   assert.ok((await page.evaluate(() => window.forge.state())).settings.skills.includes('next'));
   await page.getByRole('button', { name: 'Training lab LAB' }).click();
   await page.getByRole('heading', { name: 'Teach it your way.' }).waitFor();

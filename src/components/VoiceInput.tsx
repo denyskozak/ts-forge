@@ -1,6 +1,7 @@
 import { Mic, Square, LoaderCircle } from 'lucide-react';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import type { Settings } from '../../shared/types';
+import { Button } from './ui';
 
 export function VoiceInput({
   language,
@@ -16,7 +17,7 @@ export function VoiceInput({
   const voice = useVoiceInput({ language, onTranscript, onError });
   if (!voice.active)
     return (
-      <button
+      <Button
         className="voice-button"
         disabled={disabled}
         onClick={voice.start}
@@ -24,13 +25,13 @@ export function VoiceInput({
         aria-label="Start voice input"
       >
         <Mic size={16} />
-      </button>
+      </Button>
     );
   return (
     <div className="voice-active" role="status" aria-label="Voice input active">
       <canvas ref={voice.canvasRef} aria-hidden="true" />
       <span>{voice.state === 'starting' ? 'Preparing local speech…' : 'Listening'}</span>
-      <button
+      <Button
         className="voice-button stop"
         onClick={voice.stop}
         disabled={voice.state !== 'listening'}
@@ -42,7 +43,7 @@ export function VoiceInput({
         ) : (
           <Square size={13} />
         )}
-      </button>
+      </Button>
     </div>
   );
 }

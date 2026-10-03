@@ -1,9 +1,9 @@
 import { memo, useState } from 'react';
 import type { Components } from 'react-markdown';
 import ReactMarkdown from 'react-markdown';
-import { Terminal, ChevronDown, BookmarkPlus } from 'lucide-react';
+import { Terminal, BookmarkPlus } from 'lucide-react';
 import type { Message } from '../../shared/types';
-import { Mark } from './ui';
+import { Button, Disclosure, Mark } from './ui';
 const markdownComponents: Components = {
   a: ({ children }) => <span>{children}</span>,
   img: () => null,
@@ -18,15 +18,15 @@ const MessageRow = memo(function MessageRow({
   const [expanded, setExpanded] = useState(false);
   if (message.role === 'tool')
     return (
-      <details className="tool-message" onToggle={(e) => setExpanded(e.currentTarget.open)}>
-        <summary>
+      <Disclosure className="tool-message" onOpenChange={setExpanded} title={
+        <>
           <Terminal size={14} />
           {message.name}
           <span>Tool output</span>
-          <ChevronDown size={13} />
-        </summary>
+        </>
+      }>
         {expanded && <pre>{message.content}</pre>}
-      </details>
+      </Disclosure>
     );
   return (
     <article className={`message ${message.role}`}>
@@ -38,13 +38,13 @@ const MessageRow = memo(function MessageRow({
             {new Date(message.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
           {message.role === 'assistant' && (
-            <button
+            <Button
               title="Save as training example"
               className="icon-button"
               onClick={() => onCapture(message.id)}
             >
               <BookmarkPlus size={14} />
-            </button>
+            </Button>
           )}
         </div>
         <div className="markdown">
@@ -66,9 +66,9 @@ export const MessageHistory = memo(function MessageHistory({
   return (
     <>
       {start > 0 && (
-        <button className="button" onClick={() => setStart((index) => Math.max(0, index - 60))}>
+        <Button className="button" onClick={() => setStart((index) => Math.max(0, index - 60))}>
           Show older messages ({start})
-        </button>
+        </Button>
       )}
       {visible.slice(start).map((message) => (
         <MessageRow key={message.id} message={message} onCapture={onCapture} />

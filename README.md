@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  Electron · React · TypeScript · Ollama · SQLite · MIT
+  Electron · React · Radix Themes · TypeScript · Ollama · SQLite · MIT
 </p>
 
 ---
@@ -33,6 +33,7 @@ It builds a compact mental model of each workspace before a task, gives the mode
 | **Voice drafts**            | Performs on-device speech recognition, shows a live waveform, and inserts the transcript without sending it.                    |
 | **Training lab**            | Builds reviewed datasets and launches experimental MLX LoRA jobs in a separate local workspace.                                 |
 | **SSH delivery**            | Tests saved SSH profiles, inspects remote directories, and uploads reviewed workspace files after explicit approval.            |
+| **Radix interface**         | Uses Radix Themes controls, dialogs, cards, tabs, switches and accessible collapsible sections throughout the renderer.          |
 
 ## Why this harness exists
 

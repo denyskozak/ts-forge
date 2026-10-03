@@ -1,0 +1,112 @@
+.radix-themes {
+  height: 100vh;
+  min-height: 0;
+  font-family: 'Inter Variable', Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.radix-themes .rt-Button,
+.radix-themes .rt-IconButton {
+  flex-shrink: 0;
+}
+
+.radix-themes .rt-TextFieldRoot,
+.radix-themes .rt-TextArea,
+.radix-themes .rt-SelectTrigger {
+  width: 100%;
+}
+
+.radix-disclosure-trigger.rt-Button {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.radix-disclosure-chevron {
+  transition: transform 160ms ease;
+}
+
+[data-state='open'] > .radix-disclosure-trigger .radix-disclosure-chevron {
+  transform: rotate(180deg);
+}
+
+.radix-disclosure-content {
+  overflow: hidden;
+}
+
+.skill-instructions > .radix-disclosure-trigger,
+.tool-message > .radix-disclosure-trigger,
+.example > .radix-disclosure-trigger,
+.task-panel > .radix-disclosure-trigger {
+  height: auto;
+  padding-inline: 0;
+}
+
+.skill-instructions > .radix-disclosure-content p {
+  margin-top: var(--space-3);
+}
+
+.tool-message > .radix-disclosure-trigger {
+  padding: var(--space-2) var(--space-3);
+}
+
+.tool-message > .radix-disclosure-content pre {
+  padding: 0 var(--space-3) var(--space-2);
+}
+
+.example > .radix-disclosure-trigger > span,
+.task-panel > .radix-disclosure-trigger > span {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.example > .radix-disclosure-content > strong {
+  display: block;
+  margin-top: var(--space-4);
+}
+
+.large-diff .radix-disclosure-content pre,
+.task-check .radix-disclosure-content pre {
+  max-height: 400px;
+  overflow: auto;
+}
+
+.radix-themes .project-picker,
+.radix-themes .nav-item,
+.radix-themes .session-link,
+.radix-themes .workspace-add,
+.radix-themes .workspace-row > .rt-Button,
+.radix-themes .file-tree > .rt-Button {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.radix-themes .composer .rt-TextArea {
+  min-height: 58px;
+}
+
+.radix-themes .send-button,
+.radix-themes .voice-button {
+  border-radius: var(--radius-3);
+}
+
+.radix-themes .clarification-options .rt-Button {
+  height: auto;
+  white-space: normal;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.radix-themes .settings-check {
+  flex-direction: row;
+  align-items: center;
+}
+
+.radix-themes .context-tabs > .rt-TabsRoot {
+  min-width: 0;
+  flex: 1;
+}
+
+.radix-themes .context-tabs .rt-TabsList {
+  width: 100%;
+}

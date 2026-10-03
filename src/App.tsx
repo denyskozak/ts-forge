@@ -33,7 +33,7 @@ import {
   Trash2,
   Activity,
 } from 'lucide-react';
-import { Mark, Badge, Button, PageHeader, Modal } from './components/ui';
+import { Mark, Badge, Button, Card, Disclosure, Switch, Tabs, TextArea, PageHeader, Modal } from './components/ui';
 import { MessageHistory } from './components/MessageHistory';
 import { Diff } from './components/Diff';
 import { VoiceInput } from './components/VoiceInput';
@@ -411,7 +411,7 @@ export default function App() {
           </span>
           <span className="version">ALPHA</span>
         </div>
-        <button
+        <Button
           className="project-picker"
           onClick={() =>
             state.workspaces.length ? setWorkspaceMenu((open) => !open) : void openWorkspace()
@@ -426,18 +426,18 @@ export default function App() {
             <span>{state.workspace ? 'Local project' : 'Open a project to begin'}</span>
           </div>
           {analyzing ? <LoaderCircle size={14} className="spin" /> : <ChevronDown size={14} />}
-        </button>
+        </Button>
         {workspaceMenu && (
           <div className="workspace-menu">
             <div className="workspace-menu-heading">
               <span>WORKSPACES</span>
-              <button className="icon-button" title="Add workspace" onClick={openWorkspace}>
+              <Button className="icon-button" title="Add workspace" onClick={openWorkspace}>
                 <Plus size={14} />
-              </button>
+              </Button>
             </div>
             {state.workspaces.map((item) => (
               <div className={`workspace-row ${item.active ? 'active' : ''}`} key={item.path}>
-                <button onClick={() => selectWorkspace(item.path)} title={item.path}>
+                <Button onClick={() => selectWorkspace(item.path)} title={item.path}>
                   <FolderOpen size={14} />
                   <span>
                     <strong>{item.name}</strong>
@@ -445,26 +445,26 @@ export default function App() {
                       {item.analyzed ? 'TypeScript analysis ready' : 'Analysis pending'}
                     </small>
                   </span>
-                </button>
-                <button
+                </Button>
+                <Button
                   className="workspace-remove"
                   title={`Remove ${item.name}`}
                   onClick={() => removeWorkspace(item.path)}
                 >
                   <Trash2 size={12} />
-                </button>
+                </Button>
               </div>
             ))}
-            <button className="workspace-add" onClick={openWorkspace}>
+            <Button className="workspace-add" onClick={openWorkspace}>
               <Plus size={14} />
               Open another project
-            </button>
+            </Button>
           </div>
         )}
         <div className="nav-caption">BUILD</div>
         <nav>
           {NAV.map((item) => (
-            <button
+            <Button
               key={item.id}
               className={`nav-item ${page === item.id ? 'active' : ''}`}
               onClick={() => setPage(item.id)}
@@ -476,19 +476,19 @@ export default function App() {
               ) : item.id === 'agent' ? (
                 <kbd>⌘ K</kbd>
               ) : null}
-            </button>
+            </Button>
           ))}
         </nav>
         <div className="session-heading">
           <span>RECENT SESSIONS</span>
-          <button className="icon-button" title="New session" onClick={newSession} disabled={busy}>
+          <Button className="icon-button" title="New session" onClick={newSession} disabled={busy}>
             <Plus size={16} />
-          </button>
+          </Button>
         </div>
         <div className="session-list">
           {sessions.length ? (
             sessions.slice(0, 8).map((s) => (
-              <button
+              <Button
                 key={s.id}
                 disabled={busy}
                 className={`session-link ${sessionId === s.id ? 'selected' : ''}`}
@@ -496,7 +496,7 @@ export default function App() {
               >
                 <MessageSquare size={14} />
                 <span>{s.title}</span>
-              </button>
+              </Button>
             ))
           ) : (
             <div className="session-empty">
@@ -507,7 +507,7 @@ export default function App() {
           )}
         </div>
         <div className="sidebar-bottom">
-          <div className="private-card">
+          <Card className="private-card">
             <div className="private-icon">
               <ShieldCheck size={19} />
             </div>
@@ -520,22 +520,22 @@ export default function App() {
               </p>
             </div>
             <span className="green-dot" />
-          </div>
-          <button
+          </Card>
+          <Button
             className={`nav-item ${page === 'settings' ? 'active' : ''}`}
             onClick={() => setPage('settings')}
           >
             <Settings2 size={17} />
             <span>Settings</span>
-          </button>
+          </Button>
           <div className="sidebar-footer">
             <span className="avatar">F</span>
             <span>
               Personal workspace<small>Open source edition</small>
             </span>
-            <button className="icon-button" title="Getting started" onClick={() => setHelp(true)}>
+            <Button className="icon-button" title="Getting started" onClick={() => setHelp(true)}>
               <CircleHelp size={17} />
-            </button>
+            </Button>
           </div>
         </div>
       </aside>
@@ -565,13 +565,13 @@ export default function App() {
               LOCAL FIRST
             </span>
             <div className="divider" />
-            <button
+            <Button
               className="icon-button"
               title="Toggle context panel"
               onClick={() => setRightOpen(!rightOpen)}
             >
               {rightOpen ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />}
-            </button>
+            </Button>
           </div>
         </header>
         <div className="body-row">
@@ -583,10 +583,10 @@ export default function App() {
                     <span className="tiny-dot orange" />{' '}
                     {busy ? status : 'A space to build something great'}
                   </div>
-                  <button onClick={newSession} disabled={busy}>
+                  <Button onClick={newSession} disabled={busy}>
                     <Plus size={14} />
                     New session
-                  </button>
+                  </Button>
                 </div>
                 <div
                   className="conversation"
@@ -646,7 +646,7 @@ export default function App() {
                     <TaskPanel task={task} sessionId={sessionId} busy={busy} onError={notify} />
                   )}
                   {clarification && (
-                    <div className="clarification-card" role="group" aria-label="Forge question" tabIndex={-1}>
+                    <Card className="clarification-card" role="group" aria-label="Forge question" tabIndex={-1}>
                       <div className="clarification-heading">
                         <CircleHelp size={18} />
                         <div>
@@ -656,25 +656,25 @@ export default function App() {
                       </div>
                       <div className="clarification-options">
                         {clarification.options.map((option) => (
-                          <button
+                          <Button
                             key={option.id}
                             disabled={answerPending}
                             onClick={() => void answerClarification(option.id)}
                           >
                             <strong>{option.label}</strong>
                             {option.description && <span>{option.description}</span>}
-                          </button>
+                          </Button>
                         ))}
                       </div>
                       <form className="clarification-custom" onSubmit={(event) => { event.preventDefault(); void answerClarification('custom'); }}>
                         <label htmlFor="custom-answer">Or write your own answer</label>
-                        <textarea id="custom-answer" value={customAnswer} onChange={(event) => setCustomAnswer(event.target.value)} maxLength={2000} rows={2} disabled={answerPending} placeholder="Your answer…" />
-                        <button type="submit" className="primary" disabled={answerPending || !customAnswer.trim()}>Send answer</button>
+                        <TextArea id="custom-answer" value={customAnswer} onChange={(event) => setCustomAnswer(event.target.value)} maxLength={2000} rows={2} disabled={answerPending} placeholder="Your answer…" />
+                        <Button type="submit" className="primary" disabled={answerPending || !customAnswer.trim()}>Send answer</Button>
                       </form>
-                    </div>
+                    </Card>
                   )}
                   {approval && (
-                    <div className="approval-banner">
+                    <Card className="approval-banner">
                       <ShieldCheck size={18} />
                       <div>
                         <strong>Your approval is needed</strong>
@@ -684,8 +684,8 @@ export default function App() {
                             : approval.title}
                         </span>
                       </div>
-                      <button onClick={() => approve(false)}>Decline</button>
-                      <button className="approve-button" onClick={() => approve(true)}>
+                      <Button onClick={() => approve(false)}>Decline</Button>
+                      <Button className="approve-button" onClick={() => approve(true)}>
                         {approval.kind === 'write'
                           ? 'Apply change'
                           : approval.kind === 'changeset'
@@ -694,11 +694,11 @@ export default function App() {
                               ? 'Search web'
                               : 'Run check'}
                         <Check size={14} />
-                      </button>
-                    </div>
+                      </Button>
+                    </Card>
                   )}
                   <div className={`composer ${busy ? 'is-busy' : ''}`}>
-                    <textarea
+                    <TextArea
                       ref={promptRef}
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
@@ -713,10 +713,10 @@ export default function App() {
                       rows={2}
                     />
                     <div className="composer-bottom">
-                      <button className="context-button" onClick={openWorkspace} disabled={busy}>
+                      <Button className="context-button" onClick={openWorkspace} disabled={busy}>
                         <Plus size={16} />
                         <span>{state.workspace?.name || 'Add project'}</span>
-                      </button>
+                      </Button>
                       <div className="composer-right">
                         <VoiceInput
                           language={state.settings.speechLanguage}
@@ -729,28 +729,28 @@ export default function App() {
                             requestAnimationFrame(() => promptRef.current?.focus());
                           }}
                         />
-                        <button className="model-button" onClick={() => setPage('models')}>
+                        <Button className="model-button" onClick={() => setPage('models')}>
                           <span className={`tiny-dot ${activeModel ? 'green' : 'orange'}`} />
                           {state.settings.model || 'Select local model'}
                           <ChevronDown size={12} />
-                        </button>
+                        </Button>
                         {busy ? (
-                          <button
+                          <Button
                             className="send-button stop"
                             onClick={() => api.stop().catch(notify)}
                             title="Stop agent"
                           >
                             <Square size={15} />
-                          </button>
+                          </Button>
                         ) : (
-                          <button
+                          <Button
                             className="send-button"
                             disabled={!prompt.trim()}
                             onClick={run}
                             title="Send message"
                           >
                             <ArrowUp size={19} />
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </div>
@@ -774,7 +774,7 @@ export default function App() {
                   title="A mind of your own."
                   description="Choose the model behind your next build. Everything runs on your machine."
                 />
-                <div className="connection-card">
+                <Card className="connection-card">
                   <div className="large-icon">
                     <Cpu size={24} />
                   </div>
@@ -791,11 +791,11 @@ export default function App() {
                     </h3>
                     <code>{state.settings.endpoint}</code>
                   </div>
-                  <button className="button" onClick={refreshModels}>
+                  <Button className="button" onClick={refreshModels}>
                     <RefreshCw size={14} className={connection === 'checking' ? 'spin' : ''} />
                     Refresh
-                  </button>
-                </div>
+                  </Button>
+                </Card>
                 {modelError && (
                   <div className="info-box">
                     <AlertCircle size={17} />
@@ -813,7 +813,7 @@ export default function App() {
                 {models.length ? (
                   <div className="model-grid">
                     {models.map((model) => (
-                      <div
+                      <Card
                         className={`model-card ${state.settings.model === model.name ? 'chosen' : ''}`}
                         key={model.name}
                       >
@@ -856,7 +856,7 @@ export default function App() {
                             </>
                           )}
                         </Button>
-                      </div>
+                      </Card>
                     ))}
                   </div>
                 ) : (
@@ -874,10 +874,10 @@ export default function App() {
                     </p>
                     <code>OLLAMA_NO_CLOUD=1 ollama serve</code>
                     <small>Model downloads are a separate, explicit setup step.</small>
-                    <button className="text-button" onClick={() => setHelp(true)}>
+                    <Button className="text-button" onClick={() => setHelp(true)}>
                       Read the setup guide
                       <ArrowUpRight size={14} />
-                    </button>
+                    </Button>
                   </div>
                 )}
                 <div className="info-box">
@@ -901,19 +901,18 @@ export default function App() {
                 </div>
                 <div className="skills-grid">
                   {SKILLS.map((skill) => (
-                    <div
+                    <Card
                       className={`skill-card ${skill.required || state.settings.skills.includes(skill.id) ? 'enabled' : ''}`}
                       key={skill.id}
                     >
                       <div className="skill-card-top">
                         <span className={`skill-logo ${skill.id}`}>{skillGlyph(skill.id)}</span>
-                        <button
+                        <Switch
                           disabled={skill.required}
                           title={skill.required ? 'Required in every agent run' : undefined}
                           aria-label={`Toggle ${skill.name}`}
-                          aria-pressed={skill.required || state.settings.skills.includes(skill.id)}
-                          className={`toggle ${skill.required || state.settings.skills.includes(skill.id) ? 'on' : ''}`}
-                          onClick={() =>
+                          checked={skill.required || state.settings.skills.includes(skill.id)}
+                          onCheckedChange={() =>
                             saveSettings({
                               ...state.settings,
                               skills:
@@ -922,9 +921,7 @@ export default function App() {
                                   : [...state.settings.skills, skill.id],
                             })
                           }
-                        >
-                          <span />
-                        </button>
+                        />
                       </div>
                       <h2>{skill.name}</h2>
                       <p>{skill.description}</p>
@@ -933,17 +930,13 @@ export default function App() {
                           <Badge key={t}>{t}</Badge>
                         ))}
                       </div>
-                      <details className="skill-instructions">
-                        <summary>
-                          View instructions
-                          <ChevronDown size={14} />
-                        </summary>
+                      <Disclosure className="skill-instructions" title="View instructions">
                         <p>{skill.instructions}</p>
-                      </details>
-                    </div>
+                      </Disclosure>
+                    </Card>
                   ))}
                 </div>
-                <div className="roadmap-card">
+                <Card className="roadmap-card">
                   <div className="large-icon">
                     <Layers3 size={22} />
                   </div>
@@ -955,7 +948,7 @@ export default function App() {
                     </p>
                   </div>
                   <Badge>v0.2</Badge>
-                </div>
+                </Card>
               </div>
             ) : page === 'training' ? (
               <Training
@@ -983,25 +976,21 @@ export default function App() {
           {rightOpen && (
             <aside className="context-panel">
               <div className="context-tabs">
-                <button
-                  className={rightTab === 'context' ? 'active' : ''}
-                  onClick={() => setRightTab('context')}
-                >
-                  Context
-                </button>
-                <button
-                  className={rightTab === 'changes' ? 'active' : ''}
-                  onClick={() => setRightTab('changes')}
-                >
-                  Changes{changes.length > 0 && <span>{changes.length}</span>}
-                </button>
-                <button
+                <Tabs.Root value={rightTab} onValueChange={(value) => setRightTab(value as typeof rightTab)}>
+                  <Tabs.List>
+                    <Tabs.Trigger value="context">Context</Tabs.Trigger>
+                    <Tabs.Trigger value="changes">
+                      Changes{changes.length > 0 && <span>{changes.length}</span>}
+                    </Tabs.Trigger>
+                  </Tabs.List>
+                </Tabs.Root>
+                <Button
                   className="icon-button"
                   title="Close context"
                   onClick={() => setRightOpen(false)}
                 >
                   <PanelRightClose size={15} />
-                </button>
+                </Button>
               </div>
               {rightTab === 'context' ? (
                 <>
@@ -1012,17 +1001,17 @@ export default function App() {
                     </div>
                     {state.workspace ? (
                       <>
-                        <button className="workspace-name" disabled={busy} onClick={openWorkspace}>
+                        <Button className="workspace-name" disabled={busy} onClick={openWorkspace}>
                           <span className="tiny-dot green" />
                           {state.workspace.name}
                           <ChevronDown size={12} />
-                        </button>
+                        </Button>
                         <div className="file-tree">
                           {state.workspace.files.slice(0, 60).map((f) => (
-                            <button key={f} onClick={() => readFile(f)} title={f}>
+                            <Button key={f} onClick={() => readFile(f)} title={f}>
                               <FileCode2 size={13} />
                               <span>{f}</span>
-                            </button>
+                            </Button>
                           ))}
                           {state.workspace.files.length > 60 && (
                             <span className="file-count">
@@ -1042,10 +1031,10 @@ export default function App() {
                           <br />
                           the context it needs.
                         </p>
-                        <button className="button" onClick={openWorkspace}>
+                        <Button className="button" onClick={openWorkspace}>
                           <Plus size={14} />
                           Open project
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -1087,7 +1076,7 @@ export default function App() {
                             ? 'Scan complete'
                             : 'Partial index — limits or unreadable files'}
                         </p>
-                        <button
+                        <Button
                           className="text-button"
                           onClick={() =>
                             setFile({
@@ -1104,12 +1093,12 @@ export default function App() {
                         >
                           View project map
                           <ArrowUpRight size={12} />
-                        </button>
+                        </Button>
                       </div>
                     ) : (
                       <p className="muted-text">Open a project to build its context map.</p>
                     )}
-                    <button
+                    <Button
                       className="text-button"
                       style={{ marginTop: 12, marginBottom: 22 }}
                       disabled={analyzing || busy || !state.workspace}
@@ -1126,7 +1115,7 @@ export default function App() {
                     >
                       <RefreshCw size={12} className={analyzing ? 'spin' : ''} />
                       {analyzing ? 'Analyzing…' : 'Refresh map'}
-                    </button>
+                    </Button>
                     <div className="context-label">
                       TYPESCRIPT ANALYSIS
                       <Activity size={13} />
@@ -1159,7 +1148,7 @@ export default function App() {
                             </span>
                           ))}
                         </div>
-                        <button
+                        <Button
                           className="text-button"
                           onClick={() =>
                             setFile({
@@ -1170,7 +1159,7 @@ export default function App() {
                         >
                           View analysis
                           <ArrowUpRight size={12} />
-                        </button>
+                        </Button>
                       </div>
                     ) : (
                       <p className="muted-text">
@@ -1200,10 +1189,10 @@ export default function App() {
                         <span className="tiny-dot green" />
                       </div>
                     ))}
-                    <button className="text-button" onClick={() => setPage('skills')}>
+                    <Button className="text-button" onClick={() => setPage('skills')}>
                       <Plus size={12} />
                       Manage skills
-                    </button>
+                    </Button>
                   </div>
                   <div className="context-section">
                     <div className="context-label">
@@ -1267,7 +1256,7 @@ export default function App() {
                   ))}
                   {changes.length ? (
                     changes.map((change) => (
-                      <div className="change-card" key={change.id}>
+                      <Card className="change-card" key={change.id}>
                         <div>
                           <FileCode2 size={14} />
                           <strong>{change.path}</strong>
@@ -1287,7 +1276,7 @@ export default function App() {
                           (!change.changeSetId ||
                             (changeSets?.find((set) => set.id === change.changeSetId)?.changeIds
                               .length ?? 1) === 1) && (
-                            <button
+                            <Button
                               className="text-button"
                               disabled={busy}
                               onClick={async () => {
@@ -1300,10 +1289,10 @@ export default function App() {
                             >
                               <RotateCcw size={12} />
                               Undo change
-                            </button>
+                            </Button>
                           )}
                         <Diff before={change.before} after={change.after} />
-                      </div>
+                      </Card>
                     ))
                   ) : (
                     <div className="context-empty">
@@ -1324,13 +1313,13 @@ export default function App() {
         <footer className="statusbar">
           <div>
             <span className={`tiny-dot ${connection === 'online' ? 'green' : 'muted'}`} />
-            <button onClick={() => setPage('models')}>
+            <Button onClick={() => setPage('models')}>
               {connection === 'online'
                 ? 'Ollama connected'
                 : isDesktop
                   ? 'Ollama offline'
                   : 'Browser preview'}
-            </button>
+            </Button>
             <span className="status-separator" />
             <GitBranch size={12} />
             <span>{state.workspace?.name || 'No project open'}</span>
@@ -1348,9 +1337,9 @@ export default function App() {
         <div className="toast" role="status">
           <AlertCircle size={17} />
           <span>{toast}</span>
-          <button className="icon-button" onClick={() => setToast('')} title="Dismiss">
+          <Button className="icon-button" onClick={() => setToast('')} title="Dismiss">
             <X size={15} />
-          </button>
+          </Button>
         </div>
       )}
       {file && (
