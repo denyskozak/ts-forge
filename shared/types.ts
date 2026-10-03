@@ -10,6 +10,7 @@ import {
 } from './git-skills';
 import type { SceneSource } from './react-three';
 import { REACT_THREE_INSTRUCTIONS } from './react-three';
+import { SSH_INSTRUCTIONS } from './ssh-skill';
 import type { TaskRecord, ChangeSet, ImpactReport } from './task';
 export type Page = 'agent' | 'models' | 'skills' | 'training' | 'settings';
 export type SkillId =
@@ -22,7 +23,17 @@ export type SkillId =
   | 'git-review'
   | 'contributing'
   | 'mcp-workflow'
-  | 'mcp-security';
+  | 'mcp-security'
+  | 'ssh';
+export interface SshProfile {
+  id: string;
+  name: string;
+  host: string;
+  port: number;
+  user: string;
+  auth: 'system' | 'key';
+  keyPath: string;
+}
 export interface Settings {
   endpoint: string;
   model: string;
@@ -41,6 +52,7 @@ export interface Settings {
     enabled: boolean;
     allowedDomains: string[];
   };
+  sshProfiles: SshProfile[];
 }
 export interface LocalModel {
   name: string;
@@ -107,7 +119,7 @@ export interface Change {
 }
 export interface Approval {
   id: string;
-  kind: 'write' | 'typecheck' | 'changeset' | 'validation' | 'web_search';
+  kind: 'write' | 'typecheck' | 'changeset' | 'validation' | 'web_search' | 'ssh';
   title: string;
   change?: Change;
   changeSet?: ChangeSet;
@@ -160,6 +172,12 @@ export interface ForgeAPI {
   settings(value: Settings): Promise<Settings>;
   models(): Promise<LocalModel[]>;
   testConnection(endpoint: string, model: string): Promise<ConnectionTest>;
+  testSshProfile(profile: SshProfile): Promise<{
+    ok: boolean;
+    latencyMs: number;
+    exitCode: number | null;
+    output: string;
+  }>;
   analyzeProject(): Promise<ProjectMap>;
   undoChange(id: string): Promise<Change>;
   undoChangeSet(id: string): Promise<Session>;
@@ -310,6 +328,7 @@ export const DEFAULT_SETTINGS: Settings = {
     enabled: false,
     allowedDomains: ['react.dev', 'nextjs.org', 'www.typescriptlang.org', 'r3f.docs.pmnd.rs'],
   },
+  sshProfiles: [],
 };
 export const SKILLS: {
   id: SkillId;
@@ -355,6 +374,13 @@ export const SKILLS: {
     description: 'Repository rules, focused contributions and honest PR descriptions.',
     tags: ['CONTRIBUTING', 'Pull requests', 'Review'],
     instructions: CONTRIBUTING_INSTRUCTIONS,
+  },
+  {
+    id: 'ssh',
+    name: 'SSH Deployments',
+    description: 'Test configured servers, inspect destinations and upload reviewed files.',
+    tags: ['SSH', 'Servers', 'Upload'],
+    instructions: SSH_INSTRUCTIONS,
   },
   {
     id: 'typescript',

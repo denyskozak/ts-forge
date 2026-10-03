@@ -23,6 +23,7 @@ import { workspaceFingerprint, runValidation } from './validation';
 import { analyzeImpact, closeAnalysis, invalidateAnalysis } from './language-tools';
 import { Trainer, exportDataset } from './training';
 import { models, testConnection } from './provider';
+import { sshProfileSchema, testSsh } from './ssh';
 import { listFiles, readText } from './workspace';
 import type { AgentEvent, ProjectMap, Workspace } from '../shared/types';
 let window: BrowserWindow;
@@ -197,6 +198,13 @@ app
         throw new Error('Wait for the active task before testing another model.');
       return exclusive(() =>
         testConnection(z.string().max(300).parse(endpoint), z.string().max(200).parse(model)),
+      );
+    });
+    handle('test-ssh-profile', (profile) => {
+      if (agent.busy || trainer.isRunning)
+        throw new Error('Wait for the active task before testing SSH.');
+      return exclusive(() =>
+        testSsh(sshProfileSchema.parse(profile), AbortSignal.timeout(30000)),
       );
     });
     handle('analyze-project', () =>

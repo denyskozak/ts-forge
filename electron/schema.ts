@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { taskSchema, changeSetSchema } from '../shared/task';
 import { DEFAULT_SETTINGS } from '../shared/types';
 import { localEndpoint } from './provider';
+import { sshProfileSchema } from './ssh';
 export const settingsSchema = z.object({
   endpoint: z.string().transform(localEndpoint),
   model: z.string().max(200),
@@ -19,6 +20,7 @@ export const settingsSchema = z.object({
         'contributing',
         'mcp-workflow',
         'mcp-security',
+        'ssh',
       ]),
     )
     .transform((skills) => [...new Set([...skills, ...REQUIRED_MCP_SKILLS])]),
@@ -51,6 +53,7 @@ export const settingsSchema = z.object({
         .default(DEFAULT_SETTINGS.webSearch.allowedDomains),
     })
     .default(DEFAULT_SETTINGS.webSearch),
+  sshProfiles: z.array(sshProfileSchema).max(20).default([]),
 });
 const call = z.object({
   function: z.object({ name: z.string(), arguments: z.record(z.string(), z.unknown()) }),
@@ -113,7 +116,7 @@ const example = z.object({
 });
 const approval = z.object({
   id: z.string(),
-  kind: z.enum(['write', 'typecheck', 'changeset', 'validation', 'web_search']),
+  kind: z.enum(['write', 'typecheck', 'changeset', 'validation', 'web_search', 'ssh']),
   title: z.string(),
   change: changeSchema.optional(),
   changeSet: changeSetSchema.optional(),

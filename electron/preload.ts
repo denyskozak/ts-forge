@@ -5,6 +5,7 @@ const api: ForgeAPI = {
   settings: (value) => ipcRenderer.invoke('settings', value),
   models: () => ipcRenderer.invoke('models'),
   testConnection: (endpoint, model) => ipcRenderer.invoke('test-connection', endpoint, model),
+  testSshProfile: (profile) => ipcRenderer.invoke('test-ssh-profile', profile),
   analyzeProject: () => ipcRenderer.invoke('analyze-project'),
   undoChange: (id) => ipcRenderer.invoke('undo-change', id),
   undoChangeSet: (id) => ipcRenderer.invoke('undo-changeset', id),

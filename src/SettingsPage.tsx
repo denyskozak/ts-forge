@@ -11,7 +11,7 @@ import {
   CircleAlert,
 } from 'lucide-react';
 import { api } from './api';
-import type { Settings, ConnectionTest } from '../shared/types';
+import type { Settings, ConnectionTest, SshProfile } from '../shared/types';
 export default function SettingsPage({
   settings,
   dataPath,
@@ -25,7 +25,9 @@ export default function SettingsPage({
 }) {
   const [draft, setDraft] = useState(settings),
     [testing, setTesting] = useState(false),
-    [result, setResult] = useState<ConnectionTest>();
+    [result, setResult] = useState<ConnectionTest>(),
+    [sshTesting, setSshTesting] = useState<string>(),
+    [sshResult, setSshResult] = useState<{ id: string; ok: boolean; message: string }>();
   useEffect(() => {
     setDraft(settings);
     setResult(undefined);
@@ -66,6 +68,32 @@ export default function SettingsPage({
         latencyMs: 0,
         message: (error as Error).message,
       });
+    }
+  }
+  const updateSsh = (id: string, value: Partial<SshProfile>) =>
+    update({
+      sshProfiles: draft.sshProfiles.map((profile) =>
+        profile.id === id ? { ...profile, ...value } : profile,
+      ),
+    });
+  async function chooseSshKey(id: string) {
+    const selected = await api.pickPath('file');
+    if (selected) updateSsh(id, { keyPath: selected });
+  }
+  async function testSshProfile(profile: SshProfile) {
+    setSshTesting(profile.id);
+    setSshResult(undefined);
+    try {
+      const response = await api.testSshProfile(profile);
+      setSshResult({
+        id: profile.id,
+        ok: response.ok,
+        message: response.ok ? `Connected in ${response.latencyMs} ms` : response.output || 'Connection failed.',
+      });
+    } catch (error) {
+      setSshResult({ id: profile.id, ok: false, message: (error as Error).message });
+    } finally {
+      setSshTesting(undefined);
     }
   }
   return (
@@ -316,6 +344,70 @@ export default function SettingsPage({
             results limited to these domains and never fetches result pages.
           </small>
         </label>
+      </div>
+      <div className="settings-card">
+        <h3>
+          <Terminal size={17} /> SSH servers
+        </h3>
+        <p className="muted-text">
+          Profiles store connection metadata and a key path. Private keys and passphrases are never copied into Forge.
+          Load encrypted keys into your system SSH agent before testing them.
+        </p>
+        <div className="ssh-profiles">
+          {draft.sshProfiles.map((profile) => (
+            <div className="ssh-profile" key={profile.id}>
+              <div className="form-row">
+                <label>
+                  Profile name
+                  <input value={profile.name} onChange={(event) => updateSsh(profile.id, { name: event.target.value })} />
+                </label>
+                <label>
+                  Host
+                  <input value={profile.host} placeholder="server.example.com" onChange={(event) => updateSsh(profile.id, { host: event.target.value })} />
+                </label>
+              </div>
+              <div className="form-row ssh-connection-row">
+                <label>
+                  User
+                  <input value={profile.user} onChange={(event) => updateSsh(profile.id, { user: event.target.value })} />
+                </label>
+                <label>
+                  Port
+                  <input type="number" min="1" max="65535" value={profile.port} onChange={(event) => updateSsh(profile.id, { port: Number(event.target.value) })} />
+                </label>
+                <label>
+                  Credentials
+                  <select value={profile.auth} onChange={(event) => updateSsh(profile.id, { auth: event.target.value as SshProfile['auth'] })}>
+                    <option value="system">System SSH config / agent</option>
+                    <option value="key">Private key file</option>
+                  </select>
+                </label>
+              </div>
+              {profile.auth === 'key' && (
+                <div className="settings-path">
+                  <code>{profile.keyPath || 'No key selected'}</code>
+                  <button onClick={() => void chooseSshKey(profile.id)}>Choose key</button>
+                </div>
+              )}
+              <div className="ssh-profile-actions">
+                <button className="button" disabled={sshTesting === profile.id} onClick={() => void testSshProfile(profile)}>
+                  <RefreshCw size={14} className={sshTesting === profile.id ? 'spin' : ''} />
+                  Test SSH
+                </button>
+                <button className="button" onClick={() => update({ sshProfiles: draft.sshProfiles.filter((item) => item.id !== profile.id) })}>Remove</button>
+              </div>
+              {sshResult?.id === profile.id && (
+                <div className={`connection-result ${sshResult.ok ? 'success' : 'failure'}`} role="status">
+                  {sshResult.ok ? <CircleCheck size={18} /> : <CircleAlert size={18} />}
+                  <div><strong>{sshResult.ok ? 'SSH verified' : 'SSH failed'}</strong><p>{sshResult.message}</p></div>
+                </div>
+              )}
+            </div>
+          ))}
+          <button className="button" onClick={() => update({ sshProfiles: [...draft.sshProfiles, { id: crypto.randomUUID(), name: 'Server', host: '', port: 22, user: '', auth: 'system', keyPath: '' }] })}>
+            Add SSH server
+          </button>
+        </div>
       </div>
       <button className="primary" onClick={() => onSave(draft)} disabled={testing}>
         <Check size={15} />

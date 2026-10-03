@@ -252,6 +252,12 @@ try {
   await page.getByRole('button', { name: 'Test connection', exact: true }).click();
   await page.getByText('Connection verified', { exact: true }).waitFor();
   assert.notEqual((await page.evaluate(() => window.forge.state())).settings.endpoint, endpoint);
+  await page.getByRole('button', { name: 'Add SSH server', exact: true }).click();
+  const sshCredentials = page.getByRole('combobox', { name: 'Credentials' });
+  await expect(sshCredentials).toHaveValue('system');
+  await sshCredentials.selectOption('key');
+  await expect(page.getByRole('button', { name: 'Choose key', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Remove', exact: true }).click();
   await page.screenshot({ path: 'docs/forge-settings.png' });
   await page.getByLabel('Map format').selectOption('compact');
   await page.getByRole('button', { name: 'Save settings' }).click();
@@ -424,7 +430,7 @@ try {
   }
   assert.deepEqual(errors, []);
   console.log(
-    'PASS: on-device voice draft UI, desktop settings test without save, multiple workspaces, automatic TypeScript analysis, project map, reload during clarification and approval, targeted edit, persisted checkpoint, undo, skills, dataset',
+    'PASS: on-device voice draft UI, desktop model and SSH settings, multiple workspaces, automatic TypeScript analysis, project map, reload during clarification and approval, targeted edit, persisted checkpoint, undo, skills, dataset',
   );
 } finally {
   await app.close();

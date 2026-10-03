@@ -15,6 +15,7 @@ const READ_ONLY_TOOLS = new Set([
   'search_local_knowledge',
   'discover_validation_plan',
   'inspect_native_project',
+  'ssh_profiles',
 ]);
 
 /**

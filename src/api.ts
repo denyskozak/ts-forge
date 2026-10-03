@@ -21,6 +21,7 @@ export const api: ForgeAPI = window.forge ?? {
   settings: native,
   models: native,
   testConnection: native,
+  testSshProfile: native,
   analyzeProject: native,
   undoChange: native,
   undoChangeSet: native,

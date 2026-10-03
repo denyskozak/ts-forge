@@ -32,6 +32,7 @@ It builds a compact mental model of each workspace before a task, gives the mode
 | **Multiple workspaces**     | Saves local projects, switches between them, and refreshes analysis when a workspace opens.                                     |
 | **Voice drafts**            | Performs on-device speech recognition, shows a live waveform, and inserts the transcript without sending it.                    |
 | **Training lab**            | Builds reviewed datasets and launches experimental MLX LoRA jobs in a separate local workspace.                                 |
+| **SSH delivery**            | Tests saved SSH profiles, inspects remote directories, and uploads reviewed workspace files after explicit approval.            |
 
 ## Why this harness exists
 
@@ -113,6 +114,17 @@ Project and documentation RAG use local lexical ranking by default. Configure an
 Indexes are bounded to 800 chunks and 12 MB per root. Ignored paths, secrets, symlinks and unreadable files remain excluded under the normal workspace policy. Search excerpts are evidence, not authority: the agent must read original project files before editing and cite web URLs when it relies on search results.
 
 Web results and snippets are untrusted external content. The model cannot add domains itself, make arbitrary fetches, bypass the approval, or claim a web search occurred when it was disabled or declined. This is deliberately a search-only capability; a future page-reader needs its own allowlist, size limits, sanitization and approval design.
+
+## SSH servers and file delivery
+
+Add server profiles in **Settings → SSH servers**. Forge supports two credential paths:
+
+- **System SSH config / agent:** uses the current user's OpenSSH configuration, default keys, aliases, and running `ssh-agent`.
+- **Private key file:** uses an explicit key path with `IdentitiesOnly`; encrypted keys must already be unlocked in the system agent.
+
+The agent can list configured profiles, test a connection, inspect one absolute remote directory, and upload up to 20 reviewed regular files from the active workspace. Every network operation shows the destination and requires approval. Uploads reject ignored files, secrets, symlinks, directories, paths outside the workspace, and unsafe remote paths. Host keys must already be trusted through OpenSSH `known_hosts`; Forge does not bypass verification or show an interactive password prompt.
+
+This capability deliberately does not provide a remote shell. The agent cannot restart services, install packages, modify databases, run deployment scripts, or copy private keys and `.env` files. Use a least-privileged server account whose filesystem permissions limit the upload destination.
 
 ## Framework validation tools
 

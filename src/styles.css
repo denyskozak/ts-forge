@@ -2423,6 +2423,10 @@ select {
   color: var(--muted);
   font-size: 12px;
 }
+.ssh-profiles { display: grid; gap: 12px; margin-top: 18px; }
+.ssh-profile { display: grid; gap: 12px; padding: 14px; border: 1px solid #36383d; border-radius: 10px; background: #17181a; }
+.ssh-connection-row { grid-template-columns: 1fr 110px 1.4fr; }
+.ssh-profile-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
 .settings-paths strong {
   color: var(--text);
