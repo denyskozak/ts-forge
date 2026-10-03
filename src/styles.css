@@ -1751,6 +1751,11 @@ small {
   align-items: flex-start;
   gap: 10px;
 }
+.clarification-custom { display: grid; gap: 8px; margin-top: 14px; }
+.clarification-custom label { color: #c7bdd9; font-size: 12px; }
+.clarification-custom textarea { width: 100%; resize: vertical; padding: 10px; background: #18161e; color: #eee8f8; border: 1px solid #645571; border-radius: 8px; }
+.clarification-custom button { justify-self: end; }
+@media (prefers-reduced-motion: reduce) { .clarification-card { animation: none; } }
 .clarification-heading > svg {
   flex-shrink: 0;
   color: #b5a4d6;

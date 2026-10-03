@@ -106,6 +106,9 @@ export default function App() {
     changeSets,
   } = runView;
   const [prompt, setPrompt] = useState('');
+  const [customAnswer, setCustomAnswer] = useState('');
+  const [answerPending, setAnswerPending] = useState(false);
+  useEffect(() => { setCustomAnswer(''); setAnswerPending(false); }, [clarification?.id]);
   const [rightOpen, setRightOpen] = useState(true);
   const [rightTab, setRightTab] = useState<'context' | 'changes'>('context'),
     [file, setFile] = useState<{ path: string; content: string }>();
@@ -125,6 +128,7 @@ export default function App() {
     const Audio = window.AudioContext ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Audio) return;
     const context = new Audio();
+    if (typeof context.createOscillator !== 'function') { void context.close().catch(() => {}); return; }
     const oscillator = context.createOscillator(), gain = context.createGain();
     oscillator.type = 'sine';
     oscillator.frequency.setValueAtTime(740, context.currentTime);
@@ -134,7 +138,8 @@ export default function App() {
     gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.25);
     oscillator.connect(gain).connect(context.destination);
     oscillator.start(); oscillator.stop(context.currentTime + 0.26);
-    void context.close();
+    oscillator.onended = () => { void context.close(); };
+    return () => { void context.close().catch(() => {}); };
   }, [clarification?.id]);
   const notify = useCallback(
     (error: unknown) => setToast(error instanceof Error ? error.message : String(error)),
@@ -356,12 +361,15 @@ export default function App() {
     }
   }
   async function answerClarification(optionId: string) {
-    if (!clarification) return;
+    if (!clarification || answerPending) return;
+    setAnswerPending(true);
     try {
-      await api.answerClarification(clarification.id, optionId);
+      await api.answerClarification(clarification.id, optionId, optionId === 'custom' ? customAnswer.trim() : undefined);
       dispatchRun({ type: 'clarification-answered' });
     } catch (e) {
       notify(e);
+    } finally {
+      setAnswerPending(false);
     }
   }
   const capture = useCallback(
@@ -650,6 +658,7 @@ export default function App() {
                         {clarification.options.map((option) => (
                           <button
                             key={option.id}
+                            disabled={answerPending}
                             onClick={() => void answerClarification(option.id)}
                           >
                             <strong>{option.label}</strong>
@@ -657,6 +666,11 @@ export default function App() {
                           </button>
                         ))}
                       </div>
+                      <form className="clarification-custom" onSubmit={(event) => { event.preventDefault(); void answerClarification('custom'); }}>
+                        <label htmlFor="custom-answer">Or write your own answer</label>
+                        <textarea id="custom-answer" value={customAnswer} onChange={(event) => setCustomAnswer(event.target.value)} maxLength={2000} rows={2} disabled={answerPending} placeholder="Your answer…" />
+                        <button type="submit" className="primary" disabled={answerPending || !customAnswer.trim()}>Send answer</button>
+                      </form>
                     </div>
                   )}
                   {approval && (

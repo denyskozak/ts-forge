@@ -291,11 +291,13 @@ try {
   await page.getByRole('button', { name: 'fixture Local project' }).click();
   await page.getByRole('textbox', { name: 'Message Forge' }).fill('Change world to forge.');
   await page.getByRole('button', { name: 'Send message' }).click();
-  await page.getByRole('group', { name: 'Forge question' }).waitFor();
+  await page.getByRole('group', { name: 'Forge question' }).waitFor().catch(async (error) => { console.error(JSON.stringify(await page.evaluate(() => window.forge.state()))); throw error; });
   await page.reload();
   await page.getByRole('group', { name: 'Forge question' }).waitFor();
   await page.screenshot({ path: 'docs/forge-clarification.png' });
-  await page.getByRole('button', { name: /Current API/ }).click();
+  await expect(page.getByRole('button', { name: 'Send answer', exact: true })).toBeDisabled();
+  await page.getByLabel('Or write your own answer').fill('Current API, keep existing callers compatible.');
+  await page.getByRole('button', { name: 'Send answer', exact: true }).click();
   await page.getByRole('button', { name: 'Apply change' }).waitFor();
   await page.locator('.diff .added').filter({ hasText: 'forge' }).first().waitFor();
   await page.reload();
@@ -304,6 +306,7 @@ try {
   await page.getByRole('button', { name: 'Run check', exact: true }).click();
   await page.getByRole('button', { name: 'Stop agent' }).waitFor({ state: 'hidden' });
   const checked = await page.evaluate(() => window.forge.state());
+  assert.match(checked.sessions[0].messages.find((m) => m.name === 'ask_user_question').content, /keep existing callers compatible/);
   assert.match(
     checked.sessions[0].messages.find((m) => m.name === 'typecheck').content,
     /Exit code: 0/,

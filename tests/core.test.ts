@@ -218,7 +218,7 @@ for (const decision of ['approve', 'deny', 'stop'] as const)
     assert.equal(reloaded.value.sessions.length, 1);
   });
 
-test('agent pauses for a critical question and skips sibling actions until answered', async (t) => {
+for (const custom of [false, true]) test(`agent pauses for a critical question and accepts ${custom ? 'free text' : 'an option'}`, async (t) => {
   const root = await fixture();
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const project = path.join(root, 'project');
@@ -251,7 +251,7 @@ test('agent pauses for a critical question and skips sibling actions until answe
                   arguments: {
                     question: 'Which compatibility target should this change use?',
                     reason: 'The target changes the public API and generated output.',
-                    options: [
+                    options: custom ? ['Modern only', 'Legacy compatible'] : [
                       { label: 'Modern only', description: 'Use the current runtime API.' },
                       { label: 'Legacy compatible', description: 'Preserve the older API.' },
                     ],
@@ -284,7 +284,8 @@ test('agent pauses for a critical question and skips sibling actions until answe
       const answer = event.clarification.options.find(
         (option) => option.label === 'Legacy compatible',
       );
-      queueMicrotask(() => agent.answerClarification(event.clarification.id, answer!.id));
+      assert.throws(() => agent.answerClarification(event.clarification.id, 'custom', '  '));
+      queueMicrotask(() => agent.answerClarification(event.clarification.id, custom ? 'custom' : answer!.id, custom ? 'Support both APIs' : undefined));
     }
   });
   await agent.run('Update the compatibility layer.');
@@ -300,7 +301,7 @@ test('agent pauses for a critical question and skips sibling actions until answe
   assert.match(toolMessages.find((message) => message.name === 'write_file')!.content, /Skipped/);
   assert.deepEqual(
     JSON.parse(toolMessages.find((message) => message.name === 'ask_user_question')!.content),
-    {
+    custom ? { answer: 'Support both APIs' } : {
       answer: 'Legacy compatible',
       description: 'Preserve the older API.',
     },
@@ -308,7 +309,7 @@ test('agent pauses for a critical question and skips sibling actions until answe
   const nextMessages = (requests[1].messages as { role: string; content: string }[]).filter(
     (message) => message.role === 'tool',
   );
-  assert.ok(nextMessages.some((message) => message.content.includes('Legacy compatible')));
+  assert.ok(nextMessages.some((message) => message.content.includes(custom ? 'Support both APIs' : 'Legacy compatible')));
 });
 
 test(
@@ -365,3 +366,29 @@ test(
     );
   },
 );
+
+test('implementation-only prose cannot silently complete a task without files', async (t) => {
+  const root = await fixture();
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const project = path.join(root, 'project');
+  await fs.mkdir(project);
+  let calls = 0;
+  const { server, endpoint } = await mockServer(async (req, res) => {
+    for await (const _ of req) { /* drain body */ }
+    if (req.url === '/api/tags') return res.end('{"models":[{"name":"test:local","size":1}]}');
+    if (req.url === '/api/show') return res.end('{}');
+    calls++;
+    res.end(JSON.stringify({ message: { content: 'Here is your app. Everything is ready.' }, done: true }) + '\n');
+  });
+  t.after(() => server.close());
+  const store = new Store(path.join(root, 'data'));
+  await store.load();
+  t.after(() => store.close());
+  store.value.workspacePath = project;
+  store.value.settings = { ...store.value.settings, endpoint, model: 'test:local', mapFormat: 'compact' };
+  await new Agent(store, () => {}).run('Create a calculator application.');
+  assert.equal(calls, 3);
+  assert.equal(store.value.sessions[0].task?.outcome, 'failed');
+  assert.match(store.value.sessions[0].messages.at(-1)!.content, /no changes were applied/i);
+  assert.deepEqual(await fs.readdir(project), []);
+});

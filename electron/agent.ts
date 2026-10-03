@@ -101,13 +101,14 @@ const schemas = {
       .string()
       .min(5)
       .max(300)
-      .describe('Why this answer can materially change the implementation.'),
+      .describe('Why this answer can materially change the implementation.')
+      .default('Your answer determines how this task should proceed.'),
     options: z
       .array(
-        z.object({
+        z.union([z.string().trim().min(1).max(100).transform((label) => ({ label })), z.object({
           label: z.string().min(1).max(100),
           description: z.string().min(1).max(240).optional(),
-        }),
+        })]),
       )
       .min(2)
       .max(4),
@@ -197,7 +198,7 @@ const toolDefinitions = Object.entries(schemas).map(([name, schema]) => ({
   function: {
     name,
     description: descriptions[name as keyof typeof schemas],
-    parameters: z.toJSONSchema(schema),
+    parameters: z.toJSONSchema(schema, { io: 'input' }),
   },
 }));
 
@@ -213,6 +214,7 @@ const requestsProjectChange = (prompt: string) =>
 export class Agent {
   busy = false;
   private controller?: AbortController;
+  private actionDeclined = false;
   private pending?: { id: string; resolve: (allow: boolean) => void };
   private pendingClarification?: {
     clarification: Clarification;
@@ -234,10 +236,10 @@ export class Agent {
     this.pending.resolve(allow);
     this.pending = undefined;
   }
-  answerClarification(id: string, optionId: string) {
+  answerClarification(id: string, optionId: string, text?: string) {
     if (this.pendingClarification?.clarification.id !== id)
       throw new Error('This question is no longer active.');
-    const answer = this.pendingClarification.clarification.options.find(
+    const answer = optionId === 'custom' ? { id: 'custom', label: z.string().trim().min(1).max(2000).parse(text) } : this.pendingClarification.clarification.options.find(
       (option) => option.id === optionId,
     );
     if (!answer) throw new Error('Choose one of the available answers.');
@@ -266,6 +268,7 @@ export class Agent {
       this.emit({ type: 'approval', approval });
     });
     this.store.journal('approval', { id: approval.id, allow: allowed }, run.id);
+    if (!allowed) this.actionDeclined = true;
     run.status = 'running';
     delete run.approval;
     await this.store.save();
@@ -299,6 +302,7 @@ export class Agent {
   }
   async run(prompt: string, sessionId?: string) {
     if (this.busy) throw new Error('An agent run is already active.');
+    this.actionDeclined = false;
     const root = this.store.value.workspacePath;
     if (!root) throw new Error('Open a workspace first.');
     const settings = structuredClone(this.store.value.settings);
@@ -453,6 +457,9 @@ export class Agent {
           ...(m.name ? { tool_name: m.name } : {}),
         })),
       ];
+      messages.splice(1, 0, { role: 'system', content: 'Defaults for new projects: TypeScript, pnpm. Do not ask the user to choose these or reconfirm requested file creation. An implementation request requires real file edits and validation. Questions are only for critical missing decisions; users can choose an option or supply their own answer. On a tool schema error, repair the arguments and call the same tool instead of printing JSON or inventing a tool name.' });
+      const implementationRequested = /(?:созда[йт]|собер[иёе]|реализ|добав|исправ|implement|build|create|fix|add\s)/i.test(prompt) && !readOnlyProjectUnderstanding;
+      let executionRepairs = 0;
       let understandingRepairs = 0;
       for (let step = 0; step < settings.maxSteps; step++) {
         signal.throwIfAborted();
@@ -484,6 +491,15 @@ export class Agent {
         if (recovered) {
           answer.content = recovered.prefix;
           answer.tool_calls = [recovered.call];
+        }
+        if (!answer.tool_calls?.length && implementationRequested && !task.appliedChanges) {
+          if (!this.actionDeclined && executionRepairs++ < 2 && step < settings.maxSteps - 1) {
+            messages.push(answer, { role: 'system', content: 'No changes were applied. The implementation is not complete. Use plan_task and file tools to implement the request. If an action was denied, respect the denial and explain the blocker; do not ask for it again.' });
+            delete this.store.value.activeRun!.stream;
+            continue;
+          }
+          answer.content = `Implementation is incomplete: no changes were applied to the workspace.\n\n${answer.content}`;
+          task.outcome = 'failed';
         }
         if (
           !answer.tool_calls?.length &&
@@ -892,13 +908,14 @@ export class Agent {
           );
       }
       signal.throwIfAborted();
-      task.outcome = task.appliedChanges
+      if (implementationRequested && !task.appliedChanges) task.outcome = 'failed';
+      task.outcome = task.outcome === 'failed' ? 'failed' : task.appliedChanges
         ? taskOutcome(task)
         : readOnlyProjectUnderstanding
           ? 'analysis_only'
           : 'completed_unverified';
       await publishTask();
-      this.store.value.activeRun!.status = 'completed';
+      this.store.value.activeRun!.status = task.outcome === 'failed' ? 'failed' : 'completed';
     } catch (error) {
       const message = signal.aborted
         ? 'Run stopped. Approved changes are retained with checkpoints.'

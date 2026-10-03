@@ -410,10 +410,11 @@ app
     handle('approve', (id, allow) =>
       agent.approve(z.string().uuid().parse(id), z.boolean().parse(allow)),
     );
-    handle('answer-clarification', (id, optionId) =>
+    handle('answer-clarification', (id, optionId, text) =>
       agent.answerClarification(
         z.string().uuid().parse(id),
         z.string().min(1).max(200).parse(optionId),
+        z.string().trim().min(1).max(2000).optional().parse(text),
       ),
     );
     handle('save-example', async (prompt, response) => {

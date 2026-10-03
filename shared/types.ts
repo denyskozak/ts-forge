@@ -175,7 +175,7 @@ export interface ForgeAPI {
   run(prompt: string, sessionId?: string): Promise<void>;
   stop(): Promise<void>;
   approve(id: string, allow: boolean): Promise<void>;
-  answerClarification(id: string, optionId: string): Promise<void>;
+  answerClarification(id: string, optionId: string, text?: string): Promise<void>;
   saveExample(prompt: string, response: string): Promise<Example[]>;
   deleteExample(id: string): Promise<Example[]>;
   reviewExample(id: string, reviewed: boolean): Promise<Example[]>;
