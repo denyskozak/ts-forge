@@ -1,6 +1,5 @@
 import { memo, useEffect, useState } from 'react';
 import type { Change } from 'diff';
-import { Disclosure } from './ui';
 
 export const Diff = memo(function Diff({ before, after }: { before: string; after: string }) {
   const [result, setResult] = useState<{ before: string; after: string; parts: Change[] | null }>();
@@ -30,12 +29,14 @@ export const Diff = memo(function Diff({ before, after }: { before: string; afte
     return (
       <div className="large-diff">
         <p>Review full snapshots below.</p>
-        <Disclosure title={`Before (${before.length} characters)`}>
+        <details>
+          <summary>Before ({before.length} characters)</summary>
           <pre>{before}</pre>
-        </Disclosure>
-        <Disclosure title={`After (${after.length} characters)`}>
+        </details>
+        <details>
+          <summary>After ({after.length} characters)</summary>
           <pre>{after}</pre>
-        </Disclosure>
+        </details>
       </div>
     );
   if (!current)

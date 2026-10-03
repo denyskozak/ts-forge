@@ -5,6 +5,7 @@ import {
   Plus,
   Download,
   FileCode2,
+  ChevronDown,
   Check,
   Trash2,
   BookmarkPlus,
@@ -18,7 +19,7 @@ import {
 } from 'lucide-react';
 import type { AppState, TrainingConfig } from '../shared/types';
 import { api } from './api';
-import { Badge, Button, Card, Disclosure, Tabs, TextInput, TextArea, PageHeader, Modal } from './components/ui';
+import { Badge, Button, PageHeader, Modal } from './components/ui';
 export default function Training({
   state,
   training,
@@ -141,16 +142,14 @@ export default function Training({
           </strong>
         </div>
       </div>
-      <Tabs.Root value={tab} onValueChange={(value) => setTab(value as typeof tab)}>
-        <Tabs.List className="training-tabs">
-        <Tabs.Trigger value="dataset">
+      <div className="training-tabs">
+        <button className={tab === 'dataset' ? 'active' : ''} onClick={() => setTab('dataset')}>
           Dataset<Badge>{state.examples.length}</Badge>
-        </Tabs.Trigger>
-        <Tabs.Trigger value="train">
+        </button>
+        <button className={tab === 'train' ? 'active' : ''} onClick={() => setTab('train')}>
           Train a model{training && <span className="tiny-dot green" />}
-        </Tabs.Trigger>
-        </Tabs.List>
-      </Tabs.Root>
+        </button>
+      </div>
       {tab === 'dataset' ? (
         <>
           <div className="section-heading">
@@ -182,15 +181,15 @@ export default function Training({
           {state.examples.length ? (
             <div className="examples-list">
               {state.examples.map((example) => (
-                <Disclosure key={example.id} className="example" title={
-                  <>
+                <details key={example.id} className="example">
+                  <summary>
                     <FileCode2 size={16} />
                     <span>{example.prompt}</span>
                     <Badge>{example.reviewed === false ? 'Draft' : 'Reviewed'}</Badge>
-                  </>
-                }>
+                    <ChevronDown size={14} />
+                  </summary>
                   {example.reviewed === false && (
-                    <Button
+                    <button
                       className="button"
                       style={{ marginTop: 14 }}
                       onClick={async () => {
@@ -203,13 +202,13 @@ export default function Training({
                     >
                       <Check size={13} />
                       Mark reviewed
-                    </Button>
+                    </button>
                   )}
                   <strong>Prompt</strong>
                   <pre>{example.prompt}</pre>
                   <strong>Response</strong>
                   <pre>{example.response}</pre>
-                  <Button
+                  <button
                     className="text-button danger"
                     onClick={async () => {
                       try {
@@ -221,8 +220,8 @@ export default function Training({
                   >
                     <Trash2 size={13} />
                     Remove example
-                  </Button>
-                </Disclosure>
+                  </button>
+                </details>
               ))}
             </div>
           ) : (
@@ -234,10 +233,10 @@ export default function Training({
                 <br />
                 Nothing is added automatically.
               </p>
-              <Button className="text-button" onClick={() => setAdding(true)}>
+              <button className="text-button" onClick={() => setAdding(true)}>
                 Add your first example
                 <ArrowRight size={14} />
-              </Button>
+              </button>
             </div>
           )}
           <div className="info-box">
@@ -250,7 +249,7 @@ export default function Training({
           </div>
         </>
       ) : (
-        <Card className="settings-card training-config">
+        <div className="settings-card training-config">
           <h3>Local MLX training</h3>
           <p className="muted-text">
             Requires Apple Silicon, an installed mlx_lm.lora executable, and a downloaded MLX-format
@@ -259,33 +258,33 @@ export default function Training({
           <label>
             MLX executable
             <div className="input-picker">
-              <TextInput
+              <input
                 placeholder="/path/to/venv/bin/mlx_lm.lora"
                 value={config.executable}
                 onChange={(e) => setConfig({ ...config, executable: e.target.value })}
               />
-              <Button onClick={() => pick('executable')} title="Choose MLX executable">
+              <button onClick={() => pick('executable')} title="Choose MLX executable">
                 <FolderOpen size={16} />
-              </Button>
+              </button>
             </div>
           </label>
           <label>
             Local model directory
             <div className="input-picker">
-              <TextInput
+              <input
                 placeholder="/path/to/local-mlx-model"
                 value={config.modelPath}
                 onChange={(e) => setConfig({ ...config, modelPath: e.target.value })}
               />
-              <Button onClick={() => pick('modelPath')} title="Choose model directory">
+              <button onClick={() => pick('modelPath')} title="Choose model directory">
                 <FolderOpen size={16} />
-              </Button>
+              </button>
             </div>
           </label>
           <div className="form-row">
             <label>
               Iterations
-              <TextInput
+              <input
                 type="number"
                 min="1"
                 value={config.iterations}
@@ -294,7 +293,7 @@ export default function Training({
             </label>
             <label>
               Learning rate
-              <TextInput
+              <input
                 type="number"
                 step="0.00001"
                 value={config.learningRate}
@@ -303,7 +302,7 @@ export default function Training({
             </label>
             <label>
               Batch size
-              <TextInput
+              <input
                 type="number"
                 min="1"
                 max="32"
@@ -343,10 +342,10 @@ export default function Training({
             </small>
           )}
           {log && <pre className="training-log">{log}</pre>}
-        </Card>
+        </div>
       )}
       {!!state.jobs?.length && (
-        <Card className="settings-card">
+        <div className="settings-card">
           <h3>Training history</h3>
           {state.jobs.slice(0, 10).map((job) => (
             <div key={job.id} className="privacy-item">
@@ -359,7 +358,7 @@ export default function Training({
               </div>
             </div>
           ))}
-        </Card>
+        </div>
       )}
       {adding && (
         <Modal title="Add a reviewed example" onClose={() => setAdding(false)}>
@@ -367,7 +366,7 @@ export default function Training({
             <p>Include enough context for the answer to stand on its own.</p>
             <label>
               Prompt
-              <TextArea
+              <textarea
                 rows={4}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
@@ -376,7 +375,7 @@ export default function Training({
             </label>
             <label>
               Ideal response
-              <TextArea
+              <textarea
                 rows={7}
                 value={response}
                 onChange={(e) => setResponse(e.target.value)}

@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { api } from './api';
 import type { Settings, ConnectionTest, SshProfile } from '../shared/types';
-import { Button, Card, Checkbox, SelectField, TextArea, TextInput } from './components/ui';
 export default function SettingsPage({
   settings,
   dataPath,
@@ -104,11 +103,11 @@ export default function SettingsPage({
         <h1>Your workspace, your rules.</h1>
         <p>Connect a local model, shape its context, and keep control of your code.</p>
       </div>
-      <Card className="settings-card">
+      <div className="settings-card">
         <h3>Local runtime</h3>
         <label>
           Ollama endpoint
-          <TextInput
+          <input
             disabled={testing}
             value={draft.endpoint}
             onChange={(e) => update({ endpoint: e.target.value })}
@@ -120,7 +119,7 @@ export default function SettingsPage({
         </label>
         <label>
           Local model
-          <TextInput
+          <input
             aria-label="Local model"
             list="connection-models"
             disabled={testing}
@@ -138,10 +137,10 @@ export default function SettingsPage({
           </small>
         </label>
         <div className="connection-test-actions">
-          <Button className="button" onClick={test} disabled={testing}>
+          <button className="button" onClick={test} disabled={testing}>
             <RefreshCw size={14} className={testing ? 'spin' : ''} />
             {testing ? 'Testing local model…' : 'Test connection'}
-          </Button>
+          </button>
           <span>Tests these values without saving them.</span>
         </div>
         {result && (
@@ -157,7 +156,7 @@ export default function SettingsPage({
               {result.models.length > 0 && (
                 <div className="connection-models">
                   {result.models.map((model) => (
-                    <Button
+                    <button
                       key={model.name}
                       onClick={() => {
                         setDraft((old) => ({ ...old, model: model.name }));
@@ -165,7 +164,7 @@ export default function SettingsPage({
                       }}
                     >
                       {model.name}
-                    </Button>
+                    </button>
                   ))}
                 </div>
               )}
@@ -175,7 +174,7 @@ export default function SettingsPage({
         <div className="form-row" style={{ marginTop: 24 }}>
           <label>
             Temperature
-            <TextInput
+            <input
               type="number"
               min="0"
               max="1"
@@ -186,7 +185,7 @@ export default function SettingsPage({
           </label>
           <label>
             Maximum agent steps
-            <TextInput
+            <input
               type="number"
               min="1"
               max="30"
@@ -197,23 +196,24 @@ export default function SettingsPage({
         </div>
         <label style={{ marginTop: 24 }}>
           On-device speech language
-          <SelectField
-            ariaLabel="Speech recognition language"
+          <select
+            aria-label="Speech recognition language"
             value={draft.speechLanguage}
-            onValueChange={(value) => update({ speechLanguage: value as Settings['speechLanguage'] })}
-            options={[
-              { value: 'auto', label: 'System language' },
-              { value: 'ru-RU', label: 'Русский' },
-              { value: 'en-US', label: 'English' },
-            ]}
-          />
+            onChange={(e) =>
+              update({ speechLanguage: e.target.value as Settings['speechLanguage'] })
+            }
+          >
+            <option value="auto">System language</option>
+            <option value="ru-RU">Русский</option>
+            <option value="en-US">English</option>
+          </select>
           <small>
             Voice input requires a local Chromium speech pack. Forge never falls back to remote
             speech recognition.
           </small>
         </label>
-      </Card>
-      <Card className="settings-card">
+      </div>
+      <div className="settings-card">
         <h3>
           <Map size={17} /> Project analysis & context
         </h3>
@@ -224,24 +224,23 @@ export default function SettingsPage({
         <div className="form-row" style={{ marginTop: 20 }}>
           <label>
             Map format
-            <SelectField
-              ariaLabel="Map format"
+            <select
+              aria-label="Map format"
               value={draft.mapFormat}
-              onValueChange={(value) => update({ mapFormat: value as Settings['mapFormat'] })}
-              options={[
-                { value: 'auto', label: 'Auto — let the local model choose' },
-                { value: 'compact', label: 'Compact text' },
-                { value: 'json', label: 'JSON' },
-                { value: 'markdown', label: 'Markdown table' },
-              ]}
-            />
+              onChange={(e) => update({ mapFormat: e.target.value as Settings['mapFormat'] })}
+            >
+              <option value="auto">Auto — let the local model choose</option>
+              <option value="compact">Compact text</option>
+              <option value="json">JSON</option>
+              <option value="markdown">Markdown table</option>
+            </select>
             <small>
               The model’s preference is cached. A compact fallback is used if it cannot choose.
             </small>
           </label>
           <label>
             Context window
-            <TextInput
+            <input
               type="number"
               min="4096"
               max="65536"
@@ -255,21 +254,22 @@ export default function SettingsPage({
             </small>
           </label>
         </div>
-      </Card>
-      <Card className="settings-card">
+      </div>
+      <div className="settings-card">
         <h3>
           <HardDrive size={17} /> Local RAG & documentation
         </h3>
         <label className="settings-check">
-          <Checkbox
+          <input
+            type="checkbox"
             checked={draft.rag.enabled}
-            onCheckedChange={(checked) => update({ rag: { ...draft.rag, enabled: checked === true } })}
+            onChange={(e) => update({ rag: { ...draft.rag, enabled: e.target.checked } })}
           />
           Search the project and selected local documentation before using broad context
         </label>
         <label style={{ marginTop: 20 }}>
           Local embedding model (optional)
-          <TextInput
+          <input
             aria-label="Local embedding model"
             value={draft.rag.embeddingModel}
             placeholder="e.g. nomic-embed-text"
@@ -286,7 +286,7 @@ export default function SettingsPage({
           {draft.rag.documentationPaths.map((directory) => (
             <div key={directory} className="settings-path">
               <code>{directory}</code>
-              <Button
+              <button
                 onClick={() =>
                   update({
                     rag: {
@@ -299,30 +299,31 @@ export default function SettingsPage({
                 }
               >
                 Remove
-              </Button>
+              </button>
             </div>
           ))}
-          <Button className="button" onClick={() => void addDocumentationDirectory()}>
+          <button className="button" onClick={() => void addDocumentationDirectory()}>
             Add documentation folder
-          </Button>
+          </button>
         </div>
-      </Card>
-      <Card className="settings-card">
+      </div>
+      <div className="settings-card">
         <h3>
           <ShieldCheck size={17} /> Optional web search
         </h3>
         <label className="settings-check">
-          <Checkbox
+          <input
+            type="checkbox"
             checked={draft.webSearch.enabled}
-            onCheckedChange={(checked) =>
-              update({ webSearch: { ...draft.webSearch, enabled: checked === true } })
+            onChange={(e) =>
+              update({ webSearch: { ...draft.webSearch, enabled: e.target.checked } })
             }
           />
           Allow approved web searches
         </label>
         <label style={{ marginTop: 20 }}>
           Allowed documentation domains
-          <TextArea
+          <textarea
             aria-label="Allowed web search domains"
             rows={3}
             value={draft.webSearch.allowedDomains.join('\n')}
@@ -343,8 +344,8 @@ export default function SettingsPage({
             results limited to these domains and never fetches result pages.
           </small>
         </label>
-      </Card>
-      <Card className="settings-card">
+      </div>
+      <div className="settings-card">
         <h3>
           <Terminal size={17} /> SSH servers
         </h3>
@@ -358,47 +359,42 @@ export default function SettingsPage({
               <div className="form-row">
                 <label>
                   Profile name
-                  <TextInput value={profile.name} onChange={(event) => updateSsh(profile.id, { name: event.target.value })} />
+                  <input value={profile.name} onChange={(event) => updateSsh(profile.id, { name: event.target.value })} />
                 </label>
                 <label>
                   Host
-                  <TextInput value={profile.host} placeholder="server.example.com" onChange={(event) => updateSsh(profile.id, { host: event.target.value })} />
+                  <input value={profile.host} placeholder="server.example.com" onChange={(event) => updateSsh(profile.id, { host: event.target.value })} />
                 </label>
               </div>
               <div className="form-row ssh-connection-row">
                 <label>
                   User
-                  <TextInput value={profile.user} onChange={(event) => updateSsh(profile.id, { user: event.target.value })} />
+                  <input value={profile.user} onChange={(event) => updateSsh(profile.id, { user: event.target.value })} />
                 </label>
                 <label>
                   Port
-                  <TextInput type="number" min="1" max="65535" value={profile.port} onChange={(event) => updateSsh(profile.id, { port: Number(event.target.value) })} />
+                  <input type="number" min="1" max="65535" value={profile.port} onChange={(event) => updateSsh(profile.id, { port: Number(event.target.value) })} />
                 </label>
                 <label>
                   Credentials
-                  <SelectField
-                    ariaLabel="Credentials"
-                    value={profile.auth}
-                    onValueChange={(value) => updateSsh(profile.id, { auth: value as SshProfile['auth'] })}
-                    options={[
-                      { value: 'system', label: 'System SSH config / agent' },
-                      { value: 'key', label: 'Private key file' },
-                    ]}
-                  />
+                  <select value={profile.auth} onChange={(event) => updateSsh(profile.id, { auth: event.target.value as SshProfile['auth'] })}>
+                    <option value="system">System SSH config / agent</option>
+                    <option value="key">Private key file</option>
+                  </select>
                 </label>
               </div>
               {profile.auth === 'key' && (
                 <div className="settings-path">
                   <code>{profile.keyPath || 'No key selected'}</code>
-                  <Button onClick={() => void chooseSshKey(profile.id)}>Choose key</Button>
+                  <button onClick={() => void chooseSshKey(profile.id)}>Choose key</button>
                 </div>
               )}
               <div className="ssh-profile-actions">
-                <Button className="button" disabled={sshTesting === profile.id} onClick={() => void testSshProfile(profile)}>
+                <button className="button" disabled={sshTesting === profile.id} onClick={() => void testSshProfile(profile)}>
                   <RefreshCw size={14} className={sshTesting === profile.id ? 'spin' : ''} />
                   Test SSH
-                </Button>
-                <Button className="button" onClick={() => update({ sshProfiles: draft.sshProfiles.filter((item) => item.id !== profile.id) })}>Remove</Button>
+                </button>
+                <button className="button" onClick={() => update({ sshProfiles: draft.sshProfiles.filter((item) => item.id !== profile.id) })}>Remove</button>
               </div>
               {sshResult?.id === profile.id && (
                 <div className={`connection-result ${sshResult.ok ? 'success' : 'failure'}`} role="status">
@@ -408,16 +404,16 @@ export default function SettingsPage({
               )}
             </div>
           ))}
-          <Button className="button" onClick={() => update({ sshProfiles: [...draft.sshProfiles, { id: crypto.randomUUID(), name: 'Server', host: '', port: 22, user: '', auth: 'system', keyPath: '' }] })}>
+          <button className="button" onClick={() => update({ sshProfiles: [...draft.sshProfiles, { id: crypto.randomUUID(), name: 'Server', host: '', port: 22, user: '', auth: 'system', keyPath: '' }] })}>
             Add SSH server
-          </Button>
+          </button>
         </div>
-      </Card>
-      <Button className="primary" onClick={() => onSave(draft)} disabled={testing}>
+      </div>
+      <button className="primary" onClick={() => onSave(draft)} disabled={testing}>
         <Check size={15} />
         Save settings
-      </Button>
-      <Card className="settings-card" style={{ marginTop: 24 }}>
+      </button>
+      <div className="settings-card" style={{ marginTop: 24 }}>
         <h3>Privacy & storage</h3>
         <div className="privacy-item">
           <ShieldCheck size={18} />
@@ -450,7 +446,7 @@ export default function SettingsPage({
             </p>
           </div>
         </div>
-      </Card>
+      </div>
       <div className="about-line">
         <Cpu size={18} />
         <strong>Forge</strong>
