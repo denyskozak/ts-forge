@@ -42,6 +42,7 @@ import Training from './TrainingPage';
 import { useAgentEvents } from './hooks/useAgentEvents';
 import { initialRunView, runViewReducer } from './state/run-view';
 import SettingsPage from './SettingsPage';
+import BuildPage from './BuildPage';
 import { api, isDesktop } from './api';
 import {
   DEFAULT_SETTINGS,
@@ -54,6 +55,7 @@ import {
 } from '../shared/types';
 const NAV = [
   { id: 'agent', label: 'Workspace', icon: MessageSquare },
+  { id: 'build', label: 'Build loop', icon: Terminal },
   { id: 'models', label: 'Local models', icon: Cpu },
   { id: 'skills', label: 'Skills', icon: Layers3 },
   { id: 'training', label: 'Training lab', icon: FlaskConical },
@@ -565,13 +567,15 @@ export default function App() {
             <strong>
               {page === 'agent'
                 ? 'Workspace'
-                : page === 'training'
-                  ? 'Training lab'
-                  : page === 'models'
-                    ? 'Local models'
-                    : page === 'skills'
-                      ? 'Skills'
-                      : 'Settings'}
+                : page === 'build'
+                  ? 'Build loop'
+                  : page === 'training'
+                    ? 'Training lab'
+                    : page === 'models'
+                      ? 'Local models'
+                      : page === 'skills'
+                        ? 'Skills'
+                        : 'Settings'}
             </strong>
             {page === 'agent' && (
               <span className="session-label">{sessionId ? 'Session' : 'New session'}</span>
@@ -820,6 +824,8 @@ export default function App() {
                   </div>
                 </div>
               </>
+            ) : page === 'build' ? (
+              <BuildPage workspace={state.workspace} onError={notify} />
             ) : page === 'models' ? (
               <div className="page-inner">
                 <PageHeader
@@ -946,7 +952,7 @@ export default function App() {
                 <PageHeader
                   eyebrow="THE RIGHT KIND OF CONTEXT"
                   title="A little more specialized."
-                  description="Focused instructions for the way you build. Choose optional skills. MCP workflow and security are always active."
+                  description="Choose framework skills for your project. Problem understanding, complete delivery, sustainable design, testing and MCP policies are always active."
                 />
                 <div className="section-heading">
                   <h3>Your toolkit</h3>

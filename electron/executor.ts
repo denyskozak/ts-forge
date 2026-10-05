@@ -1,6 +1,27 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+export async function resolveExecutable(name: 'pnpm' | 'docker') {
+  const directories = [
+    ...(process.env.PATH ?? '').split(path.delimiter),
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    '/usr/bin',
+  ].filter(Boolean);
+  for (const directory of [...new Set(directories)]) {
+    const candidate = path.join(directory, name);
+    try {
+      await fs.access(candidate, 1);
+      return candidate;
+    } catch {}
+  }
+  throw new Error(`${name} was not found. Install it or add it to PATH before using this tool.`);
+}
+
+export function executableEnvironment(executable: string, extra: Record<string, string> = {}) {
+  const base = cleanEnvironment(extra);
+  return { ...base, PATH: `${path.dirname(executable)}${path.delimiter}${base.PATH}` };
+}
 export function cleanEnvironment(extra: Record<string, string> = {}) {
   const result: NodeJS.ProcessEnv = {
     PATH: '/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin',

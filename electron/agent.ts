@@ -1,4 +1,5 @@
 import { REQUIRED_MCP_SKILLS } from '../shared/mcp-skills';
+import { REQUIRED_ENGINEERING_SKILLS } from '../shared/engineering-skills';
 import { gitSkillsForPrompt } from '../shared/git-skills';
 import { contributionGuide } from './contribution-guide';
 import { searchKnowledge } from './knowledge-index';
@@ -13,6 +14,7 @@ import {
   browserPress,
   browserScreenshot,
   browserSnapshot,
+  checkLocalHttp,
   inspectLocalPreview,
   installPnpmDependencies,
   startLocalPreview,
@@ -32,6 +34,13 @@ import {
   stopPackageProcess,
 } from './development-tools';
 import { listRemote, testSsh, uploadSsh } from './ssh';
+import {
+  analyzeProductArchitecture,
+  createDisposableSqlite,
+  PRODUCT_RECIPES,
+  startDisposablePostgres,
+  stopDisposablePostgres,
+} from './product-analysis';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { z } from 'zod';
@@ -114,6 +123,14 @@ const schemas = {
     specs: z.array(z.string().min(1).max(500)).min(1).max(8),
   }),
   inspect_native_project: z.object({}),
+  product_architecture: z.object({}),
+  api_contracts: z.object({}),
+  check_local_http: z.object({ url: z.string().url().max(500) }),
+  product_recipes: z.object({}),
+  create_disposable_sqlite: z.object({}),
+  start_disposable_postgres: z.object({}),
+  stop_disposable_postgres: z.object({}),
+  run_seed_workflow: z.object({}),
   install_pnpm_dependencies: z.object({}),
   start_local_preview: z.object({}),
   inspect_local_preview: z.object({}),
@@ -255,6 +272,22 @@ const descriptions: Record<keyof typeof schemas, string> = {
     'Run selected existing Playwright spec files in a disposable snapshot after approval. Network is blocked and the original workspace is read-only. Reports browser/test failures; it cannot prove GPU rendering or a real device result.',
   inspect_native_project:
     'Inspect React Native or Expo configuration, router, navigation files and permission evidence. Read-only static analysis; read source configs before editing them.',
+  product_architecture:
+    'Map tRPC routers/procedures, Prisma and Drizzle schemas, models, indexes, migrations and product boundaries.',
+  api_contracts:
+    'List detected OpenAPI documents, tRPC client boundaries and local HTTP routes with source files.',
+  check_local_http:
+    'Send a bounded GET request to a loopback HTTP endpoint and return status, latency, content type and a truncated body.',
+  product_recipes:
+    'List TypeScript-first recipes for SaaS, storefront, dashboard, API and monorepo products with required checks.',
+  create_disposable_sqlite:
+    'Create a workspace-local disposable SQLite database under .forge after approval. Never points at production data.',
+  start_disposable_postgres:
+    'Start a workspace-specific disposable PostgreSQL 17 Docker container bound to a random loopback port after approval.',
+  stop_disposable_postgres:
+    'Stop and remove this workspace’s disposable Forge PostgreSQL container after approval.',
+  run_seed_workflow:
+    'Discover and start an existing db:seed, seed or prisma:seed package script after approval. Never invents a production connection.',
   install_pnpm_dependencies:
     'Run pnpm install with lifecycle scripts disabled, only after explicit approval. This may download packages from the configured pnpm registry. Use after the approved package.json changeset.',
   start_local_preview:
@@ -502,7 +535,11 @@ export class Agent {
       this.status('Analyzing project and refreshing context map');
       const map = await analyzeProject(root, this.store, settings, signal);
       this.emit({ type: 'map', map });
-      const effectiveSkills = new Set([...settings.skills, ...REQUIRED_MCP_SKILLS]);
+      const effectiveSkills = new Set([
+        ...settings.skills,
+        ...REQUIRED_MCP_SKILLS,
+        ...REQUIRED_ENGINEERING_SKILLS,
+      ]);
       gitSkillsForPrompt(prompt).forEach((skill) => effectiveSkills.add(skill));
       if (effectiveSkills.has('git-review') || effectiveSkills.has('contributing'))
         effectiveSkills.add('git');
@@ -586,7 +623,7 @@ export class Agent {
       messages.splice(1, 0, {
         role: 'system',
         content:
-          'Defaults for new projects: TypeScript and pnpm. For an empty workspace and a new-project request, inspect project_templates and use scaffold_project when a supported recipe matches. For an existing project, edit through apply_changeset. Discover package scripts before starting one. After implementation, run relevant checks, start the real dev process when useful, open its returned loopback URL with browser_open, and use browser_snapshot/click/fill/press/screenshot to verify observable behavior. Use package_dependencies for explicit dependency changes. Inspect Git freely, but create branches, stage, commit or push only when the user requested Git delivery. Do not ask the user to reconfirm requested file creation. An implementation request requires real file edits or a successful scaffold and validation. Questions are only for critical missing decisions; users can choose an option or supply their own answer. On a tool schema error, repair the arguments and call the same tool instead of printing JSON or inventing a tool name.',
+          'Defaults for new projects: TypeScript and pnpm. For an empty workspace and a new-project request, inspect project_templates and product_recipes, then use scaffold_project when a supported base matches. For an existing project, edit through apply_changeset. For T3 or data work call product_architecture before editing; trace tRPC procedures to callers and React Query consumers, and inspect Prisma/Drizzle models, indexes and migrations. Treat every migration containing DROP, TRUNCATE or broad DELETE as destructive and keep it in a separate reviewed changeset from ordinary source edits. Use api_contracts before changing an OpenAPI, tRPC or HTTP boundary. Discover package scripts before starting one. After implementation, run relevant checks, start the real dev process when useful, open its returned loopback URL with browser_open, and use browser_snapshot/click/fill/press/screenshot to verify observable behavior. Use package_dependencies for explicit dependency changes. Inspect Git freely, but create branches, stage, commit or push only when the user requested Git delivery. Do not ask the user to reconfirm requested file creation. An implementation request requires real file edits or a successful scaffold and validation. Questions are only for critical missing decisions; users can choose an option or supply their own answer. On a tool schema error, repair the arguments and call the same tool instead of printing JSON or inventing a tool name.',
       });
       const implementationRequested =
         /(?:созда[йт]|собер[иёе]|реализ|добав|исправ|implement|build|create|fix|add\s)/i.test(
@@ -756,6 +793,58 @@ export class Agent {
               result = JSON.stringify(await discoverValidationPlan(root, signal));
             } else if (name === 'inspect_native_project') {
               result = JSON.stringify(await inspectNativeProject(root, signal));
+            } else if (name === 'product_architecture') {
+              result = JSON.stringify(await analyzeProductArchitecture(root, signal));
+            } else if (name === 'api_contracts') {
+              const product = await analyzeProductArchitecture(root, signal);
+              result = JSON.stringify({ contracts: product.contracts, trpc: product.trpc });
+            } else if (name === 'check_local_http') {
+              const args = schemas.check_local_http.parse(call.function.arguments);
+              result = JSON.stringify(await checkLocalHttp(args.url, signal));
+            } else if (name === 'product_recipes') {
+              result = JSON.stringify(PRODUCT_RECIPES);
+            } else if (name === 'create_disposable_sqlite') {
+              const allow = await this.permission({
+                id: randomUUID(),
+                kind: 'process',
+                title: 'Create disposable .forge/development.sqlite in this workspace',
+              });
+              result = allow
+                ? JSON.stringify(await createDisposableSqlite(root))
+                : 'Disposable SQLite creation was declined.';
+            } else if (name === 'start_disposable_postgres') {
+              const allow = await this.permission({
+                id: randomUUID(),
+                kind: 'process',
+                title: 'Start disposable PostgreSQL 17 in Docker on a random loopback port',
+              });
+              result = allow
+                ? JSON.stringify(await startDisposablePostgres(root, signal))
+                : 'Disposable PostgreSQL start was declined.';
+            } else if (name === 'stop_disposable_postgres') {
+              const allow = await this.permission({
+                id: randomUUID(),
+                kind: 'process',
+                title: 'Stop and remove this workspace’s disposable PostgreSQL container',
+              });
+              result = allow
+                ? JSON.stringify(await stopDisposablePostgres(root, signal))
+                : 'Disposable PostgreSQL stop was declined.';
+            } else if (name === 'run_seed_workflow') {
+              const scripts = await discoverPackageScripts(root);
+              const seed = ['db:seed', 'seed', 'prisma:seed'].find((candidate) =>
+                scripts.scripts.some((item) => item.name === candidate),
+              );
+              if (!seed) throw new Error('No db:seed, seed or prisma:seed script was found.');
+              const command = scripts.scripts.find((item) => item.name === seed)!.command;
+              const allow = await this.permission({
+                id: randomUUID(),
+                kind: 'process',
+                title: `Run disposable seed workflow pnpm run ${seed} (${command})`,
+              });
+              result = allow
+                ? JSON.stringify(await startPackageProcess(root, seed))
+                : 'Seed workflow was declined.';
             } else if (name === 'install_pnpm_dependencies') {
               const allow = await this.permission({
                 id: randomUUID(),
@@ -856,7 +945,7 @@ export class Agent {
               result = JSON.stringify(listPackageProcesses(root));
             } else if (name === 'stop_package_process') {
               const args = schemas.stop_package_process.parse(call.function.arguments);
-              result = JSON.stringify(stopPackageProcess(root, args.id));
+              result = JSON.stringify(await stopPackageProcess(root, args.id));
             } else if (name === 'browser_open') {
               const args = schemas.browser_open.parse(call.function.arguments);
               const allow = await this.permission({

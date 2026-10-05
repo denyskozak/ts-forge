@@ -11,8 +11,15 @@ import {
 import type { SceneSource } from './react-three';
 import { REACT_THREE_INSTRUCTIONS } from './react-three';
 import { SSH_INSTRUCTIONS } from './ssh-skill';
+import {
+  REQUIRED_ENGINEERING_SKILLS,
+  PROBLEM_SOLVING_INSTRUCTIONS,
+  COMPLETE_DELIVERY_INSTRUCTIONS,
+  SUSTAINABLE_DESIGN_INSTRUCTIONS,
+  EVIDENCE_DRIVEN_TESTING_INSTRUCTIONS,
+} from './engineering-skills';
 import type { TaskRecord, ChangeSet, ImpactReport } from './task';
-export type Page = 'agent' | 'models' | 'skills' | 'training' | 'settings';
+export type Page = 'agent' | 'build' | 'models' | 'skills' | 'training' | 'settings';
 export type SkillId =
   | 'typescript'
   | 'react'
@@ -24,7 +31,8 @@ export type SkillId =
   | 'contributing'
   | 'mcp-workflow'
   | 'mcp-security'
-  | 'ssh';
+  | 'ssh'
+  | (typeof REQUIRED_ENGINEERING_SKILLS)[number];
 export interface SshProfile {
   id: string;
   name: string;
@@ -164,6 +172,49 @@ export interface AppState {
   activeRun?: RunState;
   recovery?: string[];
   jobs?: TrainingJob[];
+  processes?: DevelopmentProcess[];
+}
+
+export interface DevelopmentProcess {
+  id: string;
+  script: string;
+  startedAt: number;
+  running: boolean;
+  recovered?: boolean;
+  exitCode: number | null;
+  pid?: number;
+  urls: string[];
+  ports: number[];
+  health: 'starting' | 'ready' | 'stopped';
+  output: string;
+}
+
+export interface ProductRecipe {
+  id: 'saas' | 'storefront' | 'dashboard' | 'api' | 'monorepo';
+  name: string;
+  base: 'react' | 'next' | 'expo' | 'r3f' | 'api' | 't3';
+  description: string;
+  checks: string[];
+}
+
+export interface ProductArchitecture {
+  detected: string[];
+  trpc: {
+    routers: string[];
+    procedures: { name: string; kind: string; file: string; line: number }[];
+    callers: { path: string; operation: string; file: string; line: number }[];
+  };
+  database: {
+    providers: string[];
+    schemas: string[];
+    models: { name: string; file: string }[];
+    indexes: { name: string; file: string }[];
+    migrations: string[];
+  };
+  contracts: { kind: 'trpc-client' | 'openapi' | 'http-route'; file: string; detail: string }[];
+  migrations: { destructive: string[]; safe: string[] };
+  recipes: ProductRecipe[];
+  warnings: string[];
 }
 export type AgentEvent =
   | { type: 'message'; message: Message }
@@ -212,6 +263,17 @@ export interface ForgeAPI {
   train(config: TrainingConfig): Promise<string>;
   stopTraining(): Promise<void>;
   pickPath(kind: 'file' | 'directory'): Promise<string | null>;
+  packageScripts(): Promise<{
+    name: string;
+    packageManager: string;
+    scripts: { name: string; command: string }[];
+  }>;
+  developmentProcesses(): Promise<DevelopmentProcess[]>;
+  startDevelopmentProcess(script: string): Promise<DevelopmentProcess>;
+  stopDevelopmentProcess(id: string): Promise<DevelopmentProcess>;
+  restartDevelopmentProcess(id: string): Promise<DevelopmentProcess>;
+  productArchitecture(): Promise<ProductArchitecture>;
+  createDisposableSqlite(): Promise<{ kind: 'sqlite'; database: string; disposable: true }>;
   onEvent(callback: (event: AgentEvent) => void): () => void;
 }
 export interface ToolCallRecord {
@@ -306,6 +368,7 @@ export interface ProjectMap {
   entries: ProjectEntry[];
   mentalModel: ProjectMentalModel;
   typescript: TypeScriptProjectAnalysis;
+  product?: ProductArchitecture;
   warnings: string[];
 }
 export interface ConnectionTest {
@@ -328,7 +391,13 @@ export interface TrainingJob {
 export const DEFAULT_SETTINGS: Settings = {
   endpoint: 'http://127.0.0.1:11434',
   model: '',
-  skills: ['typescript', 'react', 'react-native', ...REQUIRED_MCP_SKILLS],
+  skills: [
+    'typescript',
+    'react',
+    'react-native',
+    ...REQUIRED_MCP_SKILLS,
+    ...REQUIRED_ENGINEERING_SKILLS,
+  ],
   temperature: 0.2,
   maxSteps: 12,
   contextTokens: 16384,
@@ -349,6 +418,38 @@ export const SKILLS: {
   tags: string[];
   required?: boolean;
 }[] = [
+  {
+    id: 'problem-solving',
+    name: 'Problem Understanding',
+    description: 'Understand the real problem and define observable acceptance criteria.',
+    tags: ['Required', 'Scope', 'Decisions'],
+    required: true,
+    instructions: PROBLEM_SOLVING_INSTRUCTIONS,
+  },
+  {
+    id: 'complete-delivery',
+    name: 'Complete Delivery',
+    description: 'Persist a runnable solution and verify the final behavior.',
+    tags: ['Required', 'Implementation', 'Verification'],
+    required: true,
+    instructions: COMPLETE_DELIVERY_INSTRUCTIONS,
+  },
+  {
+    id: 'sustainable-design',
+    name: 'Sustainable Design',
+    description: 'Maintainable, resilient and efficient design with explicit tradeoffs.',
+    tags: ['Required', 'Architecture', 'Resilience'],
+    required: true,
+    instructions: SUSTAINABLE_DESIGN_INSTRUCTIONS,
+  },
+  {
+    id: 'evidence-driven-testing',
+    name: 'Evidence-driven Testing',
+    description: 'Choose meaningful tests from risk and report actual evidence.',
+    tags: ['Required', 'Coverage', 'Regression'],
+    required: true,
+    instructions: EVIDENCE_DRIVEN_TESTING_INSTRUCTIONS,
+  },
   {
     id: 'mcp-workflow',
     name: 'MCP Workflow',

@@ -14,6 +14,19 @@ await mkdir(secondProject);
 const original = 'export const hello: string = "world";\n';
 await writeFile(path.join(project, 'index.ts'), original);
 await writeFile(
+  path.join(project, 'package.json'),
+  JSON.stringify({ name: 'forge-build-fixture', scripts: { dev: 'node server.mjs' } }),
+);
+await writeFile(
+  path.join(project, 'server.mjs'),
+  `import http from 'node:http';
+const server = http.createServer((_, response) => {
+  response.setHeader('Content-Type', 'text/html');
+  response.end('<main><h1>Forge preview ready</h1><button>Test action</button></main>');
+});
+server.listen(0, '127.0.0.1', () => console.log('http://127.0.0.1:' + server.address().port));`,
+);
+await writeFile(
   path.join(project, 'tsconfig.json'),
   JSON.stringify({
     compilerOptions: { target: 'ES2022', strict: true, noEmit: true },
@@ -276,6 +289,19 @@ try {
   const firstWorkspaceState = await page.evaluate(() => window.forge.state());
   assert.equal(firstWorkspaceState.workspaces.length, 1);
   assert.equal(firstWorkspaceState.workspace.map.typescript.compiler.strict, true);
+  await page.getByRole('button', { name: 'Build loop', exact: true }).click();
+  await page.getByRole('button', { name: /dev\s*node server\.mjs/ }).click();
+  await expect(page.getByText('running', { exact: true })).toBeVisible();
+  await expect(
+    page.frameLocator('iframe[title="Local project preview"]').getByText('Forge preview ready'),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Phone', exact: true }).click();
+  await expect(page.locator('.preview-stage')).toHaveClass(/phone/);
+  await page.getByRole('button', { name: 'Restart', exact: true }).click();
+  await expect(page.getByText('running', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Stop', exact: true }).click();
+  await expect(page.getByText(/exit stopped/)).toBeVisible();
+  await page.getByRole('button', { name: /^Workspace/ }).click();
   await app.evaluate(({ dialog }, selected) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [selected] });
   }, secondProject);
@@ -297,12 +323,20 @@ try {
   await page.getByRole('button', { name: 'fixture Local project' }).click();
   await page.getByRole('textbox', { name: 'Message Forge' }).fill('Change world to forge.');
   await page.getByRole('button', { name: 'Send message' }).click();
-  await page.getByRole('group', { name: 'Forge question' }).waitFor().catch(async (error) => { console.error(JSON.stringify(await page.evaluate(() => window.forge.state()))); throw error; });
+  await page
+    .getByRole('group', { name: 'Forge question' })
+    .waitFor()
+    .catch(async (error) => {
+      console.error(JSON.stringify(await page.evaluate(() => window.forge.state())));
+      throw error;
+    });
   await page.reload();
   await page.getByRole('group', { name: 'Forge question' }).waitFor();
   await page.screenshot({ path: 'docs/forge-clarification.png' });
   await expect(page.getByRole('button', { name: 'Send answer', exact: true })).toBeDisabled();
-  await page.getByLabel('Or write your own answer').fill('Current API, keep existing callers compatible.');
+  await page
+    .getByLabel('Or write your own answer')
+    .fill('Current API, keep existing callers compatible.');
   await page.getByRole('button', { name: 'Send answer', exact: true }).click();
   await page.getByRole('button', { name: 'Apply change' }).waitFor();
   await page.locator('.diff .added').filter({ hasText: 'forge' }).first().waitFor();
@@ -312,7 +346,10 @@ try {
   await page.getByRole('button', { name: 'Run check', exact: true }).click();
   await page.getByRole('button', { name: 'Stop agent' }).waitFor({ state: 'hidden' });
   const checked = await page.evaluate(() => window.forge.state());
-  assert.match(checked.sessions[0].messages.find((m) => m.name === 'ask_user_question').content, /keep existing callers compatible/);
+  assert.match(
+    checked.sessions[0].messages.find((m) => m.name === 'ask_user_question').content,
+    /keep existing callers compatible/,
+  );
   assert.match(
     checked.sessions[0].messages.find((m) => m.name === 'typecheck').content,
     /Exit code: 0/,
@@ -367,7 +404,14 @@ try {
     'completed_unverified',
   );
   await page.getByRole('button', { name: 'Skills', exact: true }).click();
-  for (const name of ['MCP Workflow', 'MCP Security']) {
+  for (const name of [
+    'Problem Understanding',
+    'Complete Delivery',
+    'Sustainable Design',
+    'Evidence-driven Testing',
+    'MCP Workflow',
+    'MCP Security',
+  ]) {
     const toggle = page.getByRole('button', { name: `Toggle ${name}`, exact: true });
     await expect(toggle).toBeDisabled();
     await expect(toggle).toHaveAttribute('aria-pressed', 'true');

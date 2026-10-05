@@ -4,7 +4,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { BrowserWindow } from 'electron';
-import { cleanEnvironment, terminate } from './executor';
+import { executableEnvironment, resolveExecutable, terminate } from './executor';
 
 let preview: ChildProcess | undefined;
 let interactiveWindow: BrowserWindow | undefined;
@@ -15,7 +15,7 @@ function run(command: string, args: string[], root: string, signal: AbortSignal)
   return new Promise<{ exitCode: number | null; output: string }>((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: root,
-      env: cleanEnvironment({ CI: '1' }),
+      env: executableEnvironment(command, { CI: '1' }),
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: true,
     });
@@ -37,8 +37,9 @@ function run(command: string, args: string[], root: string, signal: AbortSignal)
 
 export async function installPnpmDependencies(root: string, signal: AbortSignal) {
   await fs.access(path.join(root, 'package.json'));
+  const pnpm = await resolveExecutable('pnpm');
   const result = await run(
-    'pnpm',
+    pnpm,
     ['install', '--ignore-scripts', '--frozen-lockfile=false'],
     root,
     signal,
@@ -49,16 +50,13 @@ export async function installPnpmDependencies(root: string, signal: AbortSignal)
 export async function startLocalPreview(root: string, signal: AbortSignal) {
   if (preview && !preview.killed) terminate(preview);
   await fs.access(path.join(root, 'node_modules', 'vite'));
-  preview = spawn(
-    'pnpm',
-    ['exec', 'vite', '--host', '127.0.0.1', '--port', '4173', '--strictPort'],
-    {
-      cwd: root,
-      env: cleanEnvironment(),
-      stdio: ['ignore', 'pipe', 'pipe'],
-      detached: true,
-    },
-  );
+  const pnpm = await resolveExecutable('pnpm');
+  preview = spawn(pnpm, ['exec', 'vite', '--host', '127.0.0.1', '--port', '4173', '--strictPort'], {
+    cwd: root,
+    env: executableEnvironment(pnpm),
+    stdio: ['ignore', 'pipe', 'pipe'],
+    detached: true,
+  });
   let output = '';
   const append = (chunk: Buffer) => {
     output = (output + chunk).slice(-8000);
@@ -147,6 +145,24 @@ function localPreviewUrl(value: string) {
     throw new Error('Interactive browser access is limited to local HTTP preview URLs.');
   if (!parsed.port) throw new Error('Local preview URL must include a port.');
   return parsed.toString();
+}
+
+export async function checkLocalHttp(url: string, signal: AbortSignal) {
+  const target = localPreviewUrl(url);
+  const startedAt = Date.now();
+  const response = await fetch(target, {
+    method: 'GET',
+    redirect: 'manual',
+    signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
+  });
+  return {
+    url: target,
+    status: response.status,
+    ok: response.ok,
+    contentType: response.headers.get('content-type'),
+    latencyMs: Date.now() - startedAt,
+    body: (await response.text()).slice(0, 12_000),
+  };
 }
 
 export async function browserOpen(url: string, signal: AbortSignal) {

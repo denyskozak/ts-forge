@@ -147,6 +147,12 @@ Git status, diff and recent history are read-only. Branch creation, explicit fil
 
 The detailed, testable plan lives in [ROADMAP.md](ROADMAP.md). It covers the visible build loop, T3 and data tooling, maintenance automation, an MCP product studio, mobile/R3F verification and local-model evaluation.
 
+## Engineering principles
+
+Four engineering skills are required in every agent run: **Problem Understanding**, **Complete Delivery**, **Sustainable Design** and **Evidence-driven Testing**. They survive legacy settings and cannot be disabled in the Skills page.
+
+The agent defines the actual problem and observable acceptance criteria, asks only for decisions that materially affect the solution, and delivers persisted, runnable changes. Architecture guidance prioritizes maintainability, resilience, extensibility and measured efficiency. Validation follows risk: unit, integration, contract, end-to-end and regression tests, with property, accessibility, security, migration/recovery and performance checks when relevant. The agent must report execution evidence and unavailable checks; these instructions do not guarantee exhaustive coverage or production readiness.
+
 ## Mandatory MCP guidance
 
 **MCP Workflow** and **MCP Security** are always enabled. Old settings gain both skills on load, settings updates cannot remove them, and the agent includes them even if an in-memory settings object omits them. The Skills page shows both as required with disabled toggles.

@@ -23,7 +23,8 @@ const api: ForgeAPI = {
   run: (prompt, sessionId) => ipcRenderer.invoke('run', prompt, sessionId),
   stop: () => ipcRenderer.invoke('stop'),
   approve: (id, allow) => ipcRenderer.invoke('approve', id, allow),
-  answerClarification: (id, optionId, text) => ipcRenderer.invoke('answer-clarification', id, optionId, text),
+  answerClarification: (id, optionId, text) =>
+    ipcRenderer.invoke('answer-clarification', id, optionId, text),
   saveExample: (prompt, response) => ipcRenderer.invoke('save-example', prompt, response),
   reviewExample: (id, reviewed) => ipcRenderer.invoke('review-example', id, reviewed),
   deleteExample: (id) => ipcRenderer.invoke('delete-example', id),
@@ -31,6 +32,13 @@ const api: ForgeAPI = {
   train: (config) => ipcRenderer.invoke('train', config),
   stopTraining: () => ipcRenderer.invoke('stop-training'),
   pickPath: (kind) => ipcRenderer.invoke('pick-path', kind),
+  packageScripts: () => ipcRenderer.invoke('package-scripts'),
+  developmentProcesses: () => ipcRenderer.invoke('development-processes'),
+  startDevelopmentProcess: (script) => ipcRenderer.invoke('start-development-process', script),
+  stopDevelopmentProcess: (id) => ipcRenderer.invoke('stop-development-process', id),
+  restartDevelopmentProcess: (id) => ipcRenderer.invoke('restart-development-process', id),
+  productArchitecture: () => ipcRenderer.invoke('product-architecture'),
+  createDisposableSqlite: () => ipcRenderer.invoke('create-disposable-sqlite'),
   onEvent: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, data: AgentEvent) => callback(data);
     ipcRenderer.on('agent-event', listener);

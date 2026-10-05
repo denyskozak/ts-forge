@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { cleanEnvironment, terminate } from './executor';
+import { executableEnvironment, resolveExecutable, terminate } from './executor';
 import { safePath } from './workspace';
 
 const packageName = z
@@ -33,7 +33,10 @@ async function capture(
       const child = spawn(executable, args, {
         cwd: root,
         detached: true,
-        env: cleanEnvironment({ CI: '1', COREPACK_ENABLE_DOWNLOAD_PROMPT: '0' }),
+        env: executableEnvironment(executable, {
+          CI: '1',
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: '0',
+        }),
         stdio: ['ignore', 'pipe', 'pipe'],
       });
       let output = '';
@@ -90,7 +93,7 @@ export async function mutatePackages(
     action === 'add'
       ? ['add', ...(development ? ['--save-dev'] : []), '--ignore-scripts', ...checked]
       : ['remove', '--ignore-scripts', ...checked];
-  const result = await capture('pnpm', args, root, signal, 180_000);
+  const result = await capture(await resolveExecutable('pnpm'), args, root, signal, 180_000);
   if (result.exitCode !== 0)
     throw new Error(result.output || `pnpm exited with ${result.exitCode}.`);
   return { action, packages: checked, development, lifecycleScripts: false, ...result };
@@ -101,11 +104,57 @@ type ProcessRecord = {
   root: string;
   script: string;
   startedAt: number;
-  child: ChildProcess;
+  child?: ChildProcess;
+  pid?: number;
+  recovered?: boolean;
   output: string;
   exitCode?: number | null;
 };
 const processes = new Map<string, ProcessRecord>();
+let registryPath = '';
+
+function processAlive(pid?: number) {
+  if (!pid) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function persistProcesses() {
+  if (!registryPath) return;
+  const records = [...processes.values()]
+    .filter((item) => item.exitCode === undefined && processAlive(item.pid))
+    .map(({ id, root, script, startedAt, pid, output }) => ({
+      id,
+      root,
+      script,
+      startedAt,
+      pid,
+      output: output.slice(-12_000),
+    }));
+  await fs.writeFile(registryPath, `${JSON.stringify(records, null, 2)}\n`, { mode: 0o600 });
+}
+
+export async function configureProcessRegistry(directory: string) {
+  registryPath = path.join(directory, 'development-processes.json');
+  processes.clear();
+  try {
+    const saved = JSON.parse(await fs.readFile(registryPath, 'utf8')) as Array<
+      Pick<ProcessRecord, 'id' | 'root' | 'script' | 'startedAt' | 'pid' | 'output'>
+    >;
+    for (const record of saved) {
+      if (!processAlive(record.pid)) continue;
+      processes.set(record.id, { ...record, recovered: true });
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+  await persistProcesses();
+  return [...processes.values()].map(processView);
+}
 
 export async function startPackageProcess(root: string, script: string) {
   const checked = scriptName.parse(script);
@@ -115,10 +164,11 @@ export async function startPackageProcess(root: string, script: string) {
     (item) => item.root === root && item.script === checked && item.exitCode === undefined,
   );
   if (existing) return processView(existing);
-  const child = spawn('pnpm', ['run', checked], {
+  const pnpm = await resolveExecutable('pnpm');
+  const child = spawn(pnpm, ['run', checked], {
     cwd: root,
     detached: true,
-    env: cleanEnvironment({ FORCE_COLOR: '0' }),
+    env: executableEnvironment(pnpm, { FORCE_COLOR: '0' }),
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   const record: ProcessRecord = {
@@ -127,6 +177,7 @@ export async function startPackageProcess(root: string, script: string) {
     script: checked,
     startedAt: Date.now(),
     child,
+    pid: child.pid,
     output: '',
   };
   const append = (chunk: Buffer) => {
@@ -136,8 +187,10 @@ export async function startPackageProcess(root: string, script: string) {
   child.stderr?.on('data', append);
   child.once('close', (code) => {
     record.exitCode = code;
+    void persistProcesses().catch(() => {});
   });
   processes.set(record.id, record);
+  await persistProcesses();
   await new Promise((resolve) => setTimeout(resolve, 350));
   if (record.exitCode !== undefined)
     throw new Error(record.output || `Process exited with ${record.exitCode}.`);
@@ -148,13 +201,30 @@ function processView(record: ProcessRecord) {
   const urls = [
     ...record.output.matchAll(/https?:\/\/(?:127\.0\.0\.1|localhost):\d+(?:\/[^\s]*)?/g),
   ].map((match) => match[0]);
+  const uniqueUrls = [...new Set(urls)].slice(-5);
+  const ports = uniqueUrls.flatMap((value) => {
+    try {
+      return [Number(new URL(value).port)];
+    } catch {
+      return [];
+    }
+  });
   return {
     id: record.id,
     script: record.script,
     startedAt: record.startedAt,
     running: record.exitCode === undefined,
+    recovered: record.recovered,
+    pid: record.pid,
     exitCode: record.exitCode ?? null,
-    urls: [...new Set(urls)].slice(-5),
+    urls: uniqueUrls,
+    ports,
+    health:
+      record.exitCode !== undefined
+        ? ('stopped' as const)
+        : uniqueUrls.length
+          ? ('ready' as const)
+          : ('starting' as const),
     output: record.output.slice(-12_000),
   };
 }
@@ -163,16 +233,34 @@ export function listPackageProcesses(root: string) {
   return [...processes.values()].filter((item) => item.root === root).map(processView);
 }
 
-export function stopPackageProcess(root: string, id: string) {
+export async function stopPackageProcess(root: string, id: string) {
   const record = processes.get(id);
   if (!record || record.root !== root) throw new Error('Development process not found.');
-  if (record.exitCode === undefined) terminate(record.child);
+  if (record.exitCode === undefined) {
+    if (record.child) terminate(record.child);
+    else if (record.pid && processAlive(record.pid)) {
+      try {
+        process.kill(process.platform === 'win32' ? record.pid : -record.pid, 'SIGTERM');
+      } catch {}
+    }
+    record.exitCode = null;
+  }
+  await persistProcesses();
   return processView(record);
 }
 
-export function stopAllPackageProcesses() {
+export async function restartPackageProcess(root: string, id: string) {
+  const record = processes.get(id);
+  if (!record || record.root !== root) throw new Error('Development process not found.');
+  const script = record.script;
+  await stopPackageProcess(root, id);
+  processes.delete(id);
+  return startPackageProcess(root, script);
+}
+
+export async function stopAllPackageProcesses() {
   for (const record of processes.values())
-    if (record.exitCode === undefined) terminate(record.child);
+    if (record.exitCode === undefined) await stopPackageProcess(record.root, record.id);
 }
 
 export type ProjectTemplate = 'react' | 'next' | 'expo' | 'r3f' | 'api' | 't3';
@@ -245,7 +333,7 @@ export async function scaffoldProject(
                 ];
   const results = [];
   for (const args of commands) {
-    const result = await capture('pnpm', args, root, signal, 300_000);
+    const result = await capture(await resolveExecutable('pnpm'), args, root, signal, 300_000);
     results.push({ args, ...result });
     if (result.exitCode !== 0) throw new Error(result.output || `pnpm ${args[0]} failed.`);
   }

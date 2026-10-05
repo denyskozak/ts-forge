@@ -25,7 +25,16 @@ import { Trainer, exportDataset } from './training';
 import { models, testConnection } from './provider';
 import { sshProfileSchema, testSsh } from './ssh';
 import { closeInteractiveBrowser } from './project-runtime';
-import { stopAllPackageProcesses } from './development-tools';
+import {
+  configureProcessRegistry,
+  discoverPackageScripts,
+  listPackageProcesses,
+  restartPackageProcess,
+  startPackageProcess,
+  stopAllPackageProcesses,
+  stopPackageProcess,
+} from './development-tools';
+import { analyzeProductArchitecture, createDisposableSqlite } from './product-analysis';
 import { listFiles, readText } from './workspace';
 import type { AgentEvent, ProjectMap, Workspace } from '../shared/types';
 let window: BrowserWindow;
@@ -105,6 +114,7 @@ app
     if (!app.hasSingleInstanceLock()) return;
     store = new Store(app.getPath('userData'));
     await store.load();
+    await configureProcessRegistry(store.directory);
     if (
       store.value.workspacePath &&
       !store.value.workspacePaths.includes(store.value.workspacePath)
@@ -170,8 +180,13 @@ app
         ['http:', 'ws:'].includes(url.protocol) &&
         url.hostname === '127.0.0.1' &&
         url.port === '5187';
+      const localPreview =
+        url.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(url.hostname);
       callback({
-        cancel: !['forge:', 'file:', 'data:', 'devtools:'].includes(url.protocol) && !localDev,
+        cancel:
+          !['forge:', 'file:', 'data:', 'devtools:'].includes(url.protocol) &&
+          !localDev &&
+          !localPreview,
       });
     });
     handle('state', async () => ({
@@ -188,6 +203,7 @@ app
       platform: `${process.platform}/${process.arch}`,
       dataPath: store.directory,
       recovery: store.recovery,
+      processes: store.value.workspacePath ? listPackageProcesses(store.value.workspacePath) : [],
     }));
     handle('settings', async (value) => {
       store.value.settings = settingsSchema.parse(value);
@@ -217,6 +233,41 @@ app
         return map;
       }),
     );
+    handle('package-scripts', async () => {
+      const root = store.value.workspacePath;
+      if (!root) throw new Error('Open a project first.');
+      return discoverPackageScripts(root);
+    });
+    handle('development-processes', () => {
+      const root = store.value.workspacePath;
+      if (!root) return [];
+      return listPackageProcesses(root);
+    });
+    handle('start-development-process', async (script) => {
+      const root = store.value.workspacePath;
+      if (!root) throw new Error('Open a project first.');
+      return startPackageProcess(root, z.string().min(1).max(100).parse(script));
+    });
+    handle('stop-development-process', async (id) => {
+      const root = store.value.workspacePath;
+      if (!root) throw new Error('Open a project first.');
+      return stopPackageProcess(root, z.string().uuid().parse(id));
+    });
+    handle('restart-development-process', async (id) => {
+      const root = store.value.workspacePath;
+      if (!root) throw new Error('Open a project first.');
+      return restartPackageProcess(root, z.string().uuid().parse(id));
+    });
+    handle('product-architecture', async () => {
+      const root = store.value.workspacePath;
+      if (!root) throw new Error('Open a project first.');
+      return analyzeProductArchitecture(root, AbortSignal.timeout(30_000));
+    });
+    handle('create-disposable-sqlite', async () => {
+      const root = store.value.workspacePath;
+      if (!root) throw new Error('Open a project first.');
+      return createDisposableSqlite(root);
+    });
     handle('analyze-impact', (paths) =>
       exclusive(async () => {
         const root = store.value.workspacePath;
@@ -518,7 +569,7 @@ app.on('before-quit', (event) => {
     while ((agent?.busy || trainer?.isRunning) && Date.now() - start < 6000)
       await new Promise((r) => setTimeout(r, 50));
     closeAnalysis();
-    stopAllPackageProcesses();
+    await stopAllPackageProcesses();
     await closeInteractiveBrowser();
     await store?.flush();
   })().finally(() => app.quit());

@@ -9,6 +9,7 @@ import { hash, readText, scanFiles } from './workspace';
 import { chat, verifyLocalModel } from './provider';
 import { buildMentalModel, classifyProjectFile } from './mental-model';
 import { analyzeTypeScriptProject } from './typescript-project-analysis';
+import { analyzeProductArchitecture } from './product-analysis';
 export function describeSource(
   filename: string,
   source: string,
@@ -230,6 +231,7 @@ export async function analyzeProject(
   const pref = await preferredFormat(store, settings, signal);
   const mentalModel = buildMentalModel(entries, scan.files, packageManifest);
   const typescript = analyzeTypeScriptProject(entries, scan.files, packageManifest, configSources);
+  const product = await analyzeProductArchitecture(root, signal);
   const map: ProjectMap = {
     workspace: root,
     fingerprint: hash(
@@ -247,6 +249,7 @@ export async function analyzeProject(
     entries,
     mentalModel,
     typescript,
+    product,
     warnings,
   };
   map.content = renderMap(map);

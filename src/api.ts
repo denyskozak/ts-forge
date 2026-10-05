@@ -45,5 +45,12 @@ export const api: ForgeAPI = window.forge ?? {
   train: native,
   stopTraining: native,
   pickPath: native,
+  packageScripts: native,
+  developmentProcesses: native,
+  startDevelopmentProcess: native,
+  stopDevelopmentProcess: native,
+  restartDevelopmentProcess: native,
+  productArchitecture: native,
+  createDisposableSqlite: native,
   onEvent: () => () => {},
 };

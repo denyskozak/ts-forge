@@ -124,6 +124,10 @@ test('Git request injects capability limits and returns real contribution rules 
   assert.match(system, /git_stage_files/);
   assert.match(system, /git_push with a confirmed remote and branch/);
   assert.match(system, /Mandatory MCP workflow/);
+  assert.match(system, /Mandatory problem understanding/);
+  assert.match(system, /Mandatory complete delivery/);
+  assert.match(system, /Mandatory sustainable design/);
+  assert.match(system, /Mandatory evidence-driven testing/);
   assert.match(system, /Mandatory MCP trust boundaries/);
   assert.match(system, /has no MCP client/);
   assert.match(system, /plain Git commit includes the whole index/);

@@ -1,4 +1,5 @@
 import { REQUIRED_MCP_SKILLS } from '../shared/mcp-skills';
+import { REQUIRED_ENGINEERING_SKILLS } from '../shared/engineering-skills';
 import { z } from 'zod';
 import { taskSchema, changeSetSchema } from '../shared/task';
 import { DEFAULT_SETTINGS } from '../shared/types';
@@ -21,9 +22,12 @@ export const settingsSchema = z.object({
         'mcp-workflow',
         'mcp-security',
         'ssh',
+        ...REQUIRED_ENGINEERING_SKILLS,
       ]),
     )
-    .transform((skills) => [...new Set([...skills, ...REQUIRED_MCP_SKILLS])]),
+    .transform((skills) => [
+      ...new Set([...skills, ...REQUIRED_MCP_SKILLS, ...REQUIRED_ENGINEERING_SKILLS]),
+    ]),
   temperature: z.number().min(0).max(1),
   maxSteps: z.number().int().min(1).max(30),
   contextTokens: z.number().int().min(4096).max(65536).default(16384),
