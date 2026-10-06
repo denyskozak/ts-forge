@@ -12,23 +12,35 @@ TS Forge should cover the complete life of a TypeScript product: create it, unde
 - A local interactive browser that can inspect, click, fill, press keys and capture screenshots.
 - Git status, diff, log, branch creation, explicit staging, commit and non-force push.
 - SSH profile testing, remote directory inspection and reviewed file upload.
+- Focused tool groups, schema-aware context budgeting, concise runtime skills and on-demand full runbooks.
+- Durable task checkpoints and explicit resume after stop, restart or a step limit.
+- Browser selectors, waits, assertions, responsive viewports and expandable screenshot artifacts.
+- Bundled product starters with source files and tested domain/HTTP/browser behavior.
+- Disposable SQLite migration copies, isolated seed execution and transactional PostgreSQL migration rehearsal.
+- Maintenance/security triage, registry reports, semantic rename proposals and release-readiness evidence.
+- An opt-in MCP client for stdio and Streamable HTTP with schema validation, exact tool grants and audited calls.
+
+Foundations below are implemented in part. Checked items describe available behavior; unchecked items retain the release work and deeper product integrations.
 
 ## 0.3 — Visible build loop
 
-- Add a Processes panel with live logs, ports, health and stop/restart controls.
-- Embed the local browser preview beside chat with desktop, tablet and phone viewports.
-- Render browser actions, screenshots, test evidence and package changes as structured artifacts.
-- Add restart-safe process ownership and stale-process recovery.
-- Add complete Electron E2E coverage for scaffold → install → edit → test → preview → browser check → commit.
+- [x] Processes panel with bounded logs, ports, HTTP readiness and stop/restart controls.
+- [x] Separate Build preview and shared agent browser with responsive viewports.
+- [x] Browser actions, expandable screenshots, test evidence and package artifacts.
+- [x] Persist process identity and reject reused PIDs during recovery/stop.
+- [ ] Embed the same agent browser session beside chat.
+- [ ] Complete real-model Electron coverage for scaffold → install → edit → test → browser → local commit.
 
 ## 0.4 — T3 and product applications
 
-- Understand tRPC routers, procedures, callers and React Query boundaries.
-- Map Drizzle and Prisma schemas, migrations, indexes and generated clients.
-- Add disposable PostgreSQL/SQLite development services and seed workflows.
-- Validate destructive migrations separately from ordinary source changes.
-- Add API contract tools for OpenAPI, tRPC and local HTTP endpoints.
-- Provide project recipes for SaaS, storefront, dashboard, API and monorepo products.
+- [x] Static tRPC procedure/caller and Prisma/Drizzle schema/index/migration evidence.
+- [x] Disposable SQLite/PostgreSQL services and isolated SQLite package-script seeds.
+- [x] Reviewed SQL migration rehearsal separate from source changes.
+- [x] Local HTTP request/response assertions and bundled API contract tests.
+- [x] Runnable SaaS, storefront, dashboard, API and monorepo development starters.
+- [ ] Semantic tRPC/React Query graph, generated-client compatibility and OpenAPI schema diffing.
+- [ ] Production identity, persistence, checkout/webhooks and background jobs in product starters.
+- [ ] Isolated PostgreSQL package-script seeds and representative-data migration suites.
 
 ## 0.5 — Maintenance as a first-class workflow
 
@@ -41,7 +53,8 @@ TS Forge should cover the complete life of a TypeScript product: create it, unde
 
 ## 0.6 — MCP product studio
 
-- A real MCP client with stdio and streamable HTTP transports, capability negotiation and per-server permissions.
+- [x] MCP client with stdio/Streamable HTTP, negotiation, per-tool grants and connection UI.
+- [x] Real stdio/HTTP protocol tests, input validation, credential redaction and bounded audited calls.
 - An MCP server TypeScript recipe with tools, resources, prompts, tests and inspector configuration.
 - Schema and contract tests for tool inputs, structured outputs, pagination, cancellation and error behavior.
 - OAuth and API-key credential references backed by the operating-system keychain.

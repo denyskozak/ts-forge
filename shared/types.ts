@@ -19,6 +19,9 @@ import {
   EVIDENCE_DRIVEN_TESTING_INSTRUCTIONS,
 } from './engineering-skills';
 import type { TaskRecord, ChangeSet, ImpactReport } from './task';
+import type { TaskCheckpoint } from './checkpoint';
+import { MAINTENANCE_SKILLS, type MaintenanceSkillId } from './maintenance-skills';
+import type { McpProfile, McpConnection } from './mcp';
 export type Page = 'agent' | 'build' | 'models' | 'skills' | 'training' | 'settings';
 export type SkillId =
   | 'typescript'
@@ -32,6 +35,7 @@ export type SkillId =
   | 'mcp-workflow'
   | 'mcp-security'
   | 'ssh'
+  | MaintenanceSkillId
   | (typeof REQUIRED_ENGINEERING_SKILLS)[number];
 export interface SshProfile {
   id: string;
@@ -61,6 +65,7 @@ export interface Settings {
     allowedDomains: string[];
   };
   sshProfiles: SshProfile[];
+  mcpServers: McpProfile[];
 }
 export interface LocalModel {
   name: string;
@@ -102,6 +107,7 @@ export interface Session {
   changes?: Change[];
   changeSets?: ChangeSet[];
   task?: TaskRecord;
+  checkpoint?: TaskCheckpoint;
 }
 export interface Example {
   id: string;
@@ -138,7 +144,8 @@ export interface Approval {
     | 'package'
     | 'process'
     | 'scaffold'
-    | 'browser';
+    | 'browser'
+    | 'mcp';
   title: string;
   change?: Change;
   changeSet?: ChangeSet;
@@ -217,6 +224,7 @@ export interface ProductArchitecture {
   warnings: string[];
 }
 export type AgentEvent =
+  | { type: 'checkpoint'; sessionId: string; checkpoint: TaskCheckpoint; toolCount: number }
   | { type: 'message'; message: Message }
   | { type: 'token'; text: string }
   | { type: 'status'; status: string }
@@ -253,6 +261,13 @@ export interface ForgeAPI {
   removeWorkspace(path: string): Promise<Workspace | null>;
   readFile(path: string): Promise<string>;
   run(prompt: string, sessionId?: string): Promise<void>;
+  resume(sessionId: string): Promise<void>;
+  previewImage(path: string): Promise<string>;
+  showBrowser(): Promise<void>;
+  openBrowser(url: string): Promise<void>;
+  mcpConnections(): Promise<McpConnection[]>;
+  connectMcp(id: string): Promise<McpConnection>;
+  disconnectMcp(id: string): Promise<void>;
   stop(): Promise<void>;
   approve(id: string, allow: boolean): Promise<void>;
   answerClarification(id: string, optionId: string, text?: string): Promise<void>;
@@ -288,6 +303,10 @@ export interface RunState {
   approval?: Approval;
   clarification?: Clarification;
   stream?: string;
+  phase?: TaskCheckpoint['phase'];
+  step?: number;
+  toolGroups?: string[];
+  toolCount?: number;
 }
 export interface ProjectEntry {
   path: string;
@@ -409,6 +428,7 @@ export const DEFAULT_SETTINGS: Settings = {
     allowedDomains: ['react.dev', 'nextjs.org', 'www.typescriptlang.org', 'r3f.docs.pmnd.rs'],
   },
   sshProfiles: [],
+  mcpServers: [],
 };
 export const SKILLS: {
   id: SkillId;
@@ -418,6 +438,7 @@ export const SKILLS: {
   tags: string[];
   required?: boolean;
 }[] = [
+  ...MAINTENANCE_SKILLS.map((skill) => ({ ...skill, tags: [...skill.tags] })),
   {
     id: 'problem-solving',
     name: 'Problem Understanding',

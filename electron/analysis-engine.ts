@@ -6,13 +6,14 @@ import type { ImpactReport } from '../shared/task';
 export interface AnalysisRequest {
   files: { path: string; source: string }[];
   query: {
-    kind: 'diagnostics' | 'references' | 'definition' | 'quick_info' | 'impact';
+    kind: 'diagnostics' | 'references' | 'definition' | 'quick_info' | 'impact' | 'rename';
     path: string;
     line: number;
     character: number;
     offset?: number;
     limit?: number;
     paths?: string[];
+    newName?: string;
   };
   complete?: boolean;
   skipped?: number;
@@ -248,6 +249,46 @@ export function createAnalysisEngine() {
     if (line < 0 || line >= file.getLineStarts().length || character < 0)
       throw new Error('Position is outside the source file.');
     const position = file.getPositionOfLineAndCharacter(line, character);
+    if (request.query.kind === 'rename') {
+      const newName = request.query.newName ?? '';
+      if (!/^[A-Za-z_$][\w$]*$/.test(newName))
+        throw new Error('Use a valid TypeScript identifier.');
+      const info = service.getRenameInfo(target, position);
+      if (!info.canRename) throw new Error(info.localizedErrorMessage);
+      const locations = service.findRenameLocations(target, position, false, false, true) ?? [];
+      if (locations.some((item) => !sources.has(item.fileName)))
+        throw new Error('Rename crosses the indexed project boundary.');
+      const grouped = new Map<string, typeof locations>();
+      for (const location of locations)
+        grouped.set(location.fileName, [...(grouped.get(location.fileName) ?? []), location]);
+      const edits = [...grouped].map(([filename, locations]) => {
+        const before = sources.get(filename)!;
+        let content = before;
+        for (const location of [...locations].sort((a, b) => b.textSpan.start - a.textSpan.start)) {
+          content =
+            content.slice(0, location.textSpan.start) +
+            (location.prefixText ?? '') +
+            newName +
+            (location.suffixText ?? '') +
+            content.slice(location.textSpan.start + location.textSpan.length);
+        }
+        return {
+          path: path.relative(virtualRoot, filename),
+          content,
+          hash: createHash('sha256').update(before).digest('hex'),
+        };
+      });
+      if (!request.complete || edits.length > 40 || JSON.stringify(edits).length > 80_000)
+        throw new Error(
+          'Rename needs a complete, bounded source index. Narrow the workspace or rename manually.',
+        );
+      return {
+        ...meta,
+        edits,
+        applied: false,
+        note: 'Proposal only. Review public API compatibility, then submit edits with apply_changeset.',
+      };
+    }
     if (request.query.kind === 'quick_info') {
       const info = service.getQuickInfoAtPosition(target, position);
       return {

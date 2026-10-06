@@ -101,6 +101,17 @@ export async function resolveRecipe(
         '--runInBand',
         ...(check.recipe === 'tests.related' ? ['--findRelatedTests', '--', ...check.files] : []),
       ]);
+    if (dependencies.tsx) {
+      const tests = check.files.length
+        ? check.files
+        : (await scanFiles(root, 10000)).files.filter((file) => /\.test\.[cm]?[jt]sx?$/.test(file));
+      if (!tests.length || !tests.every((file) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(file)))
+        throw new Error('Select real Node/tsx test files.');
+      return local('tsx', 'dist/cli.mjs', [
+        '--test',
+        ...tests.map((file) => path.join(snapshot, file)),
+      ]);
+    }
     const tests = check.files.filter((f) => /\.(test|spec)\.[cm]?js$/.test(f));
     if (check.recipe === 'tests.related' && tests.length === check.files.length && tests.length)
       return { args: ['--test', ...tests.map((f) => path.join(snapshot, f))], reads: [] };
@@ -119,10 +130,17 @@ export async function resolveRecipe(
   if (check.recipe === 'next.build') return local('next', 'dist/bin/next', ['build']);
   if (check.recipe === 'expo.doctor') return local('expo-doctor', 'build/index.js', []);
   if (check.recipe === 'playwright.scenario') {
-    if (!check.files.length) throw new Error('Playwright scenarios require one or more selected spec files.');
+    if (!check.files.length)
+      throw new Error('Playwright scenarios require one or more selected spec files.');
     if (!check.files.every((file) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(file)))
       throw new Error('Playwright scenarios accept only .test or .spec source files.');
-    return local('@playwright/test', 'cli.js', ['test', '--workers=1', '--reporter=line', '--', ...check.files]);
+    return local('@playwright/test', 'cli.js', [
+      'test',
+      '--workers=1',
+      '--reporter=line',
+      '--',
+      ...check.files,
+    ]);
   }
   return { args: [], reads: [] };
 }
@@ -190,6 +208,22 @@ export async function runValidation(
       // Dependencies are shared read-only; generated output remains inside the disposable snapshot.
       await fs.symlink(modules, path.join(snapshot, 'node_modules'));
       recipe.reads.push(modules);
+    }
+    for (const manifest of captured.files.filter((file) => file.path.endsWith('/package.json'))) {
+      const relative = path.dirname(manifest.path);
+      const nested = path.join(await fs.realpath(root), relative, 'node_modules');
+      if (
+        !(await fs
+          .lstat(nested)
+          .then((stat) => stat.isDirectory())
+          .catch(() => false))
+      )
+        continue;
+      const real = await fs.realpath(nested);
+      if (real !== nested)
+        throw new Error('External nested node_modules symlink is not supported.');
+      await fs.symlink(real, path.join(snapshot, relative, 'node_modules'));
+      recipe.reads.push(real);
     }
     if (check.recipe === 'package.exports.check') {
       result.output = await checkExports(root, snapshot);

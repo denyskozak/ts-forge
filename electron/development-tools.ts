@@ -20,7 +20,7 @@ const scriptName = z
   .max(100);
 const projectName = z.string().regex(/^[a-z0-9][a-z0-9-]{0,62}$/);
 
-async function capture(
+export async function capture(
   executable: string,
   args: string[],
   root: string,
@@ -107,11 +107,28 @@ type ProcessRecord = {
   child?: ChildProcess;
   pid?: number;
   recovered?: boolean;
+  identity?: string;
+  ready?: boolean;
+  probing?: boolean;
+  probedAt?: number;
   output: string;
   exitCode?: number | null;
 };
 const processes = new Map<string, ProcessRecord>();
 let registryPath = '';
+let registryQueue = Promise.resolve();
+let registryTimer: ReturnType<typeof setTimeout> | undefined;
+
+async function processIdentity(pid: number) {
+  const result = await capture(
+    '/bin/ps',
+    ['-p', String(pid), '-o', 'lstart=', '-o', 'command='],
+    process.cwd(),
+    AbortSignal.timeout(3000),
+    3000,
+  );
+  return result.exitCode === 0 ? result.output : '';
+}
 
 function processAlive(pid?: number) {
   if (!pid) return false;
@@ -127,27 +144,48 @@ async function persistProcesses() {
   if (!registryPath) return;
   const records = [...processes.values()]
     .filter((item) => item.exitCode === undefined && processAlive(item.pid))
-    .map(({ id, root, script, startedAt, pid, output }) => ({
+    .map(({ id, root, script, startedAt, pid, identity, output }) => ({
       id,
       root,
       script,
       startedAt,
       pid,
+      identity,
       output: output.slice(-12_000),
     }));
-  await fs.writeFile(registryPath, `${JSON.stringify(records, null, 2)}\n`, { mode: 0o600 });
+  const filename = registryPath;
+  const snapshot = `${JSON.stringify(records, null, 2)}\n`;
+  registryQueue = registryQueue
+    .catch(() => {})
+    .then(async () => {
+      const temporary = `${filename}.tmp`;
+      await fs.writeFile(temporary, snapshot, { mode: 0o600 });
+      await fs.rename(temporary, filename);
+    });
+  await registryQueue;
 }
 
 export async function configureProcessRegistry(directory: string) {
+  clearTimeout(registryTimer);
+  registryTimer = undefined;
+  if (registryPath === path.join(directory, 'development-processes.json')) await persistProcesses();
   registryPath = path.join(directory, 'development-processes.json');
   processes.clear();
   try {
     const saved = JSON.parse(await fs.readFile(registryPath, 'utf8')) as Array<
-      Pick<ProcessRecord, 'id' | 'root' | 'script' | 'startedAt' | 'pid' | 'output'>
+      Pick<ProcessRecord, 'id' | 'root' | 'script' | 'startedAt' | 'pid' | 'output' | 'identity'>
     >;
     for (const record of saved) {
       if (!processAlive(record.pid)) continue;
-      processes.set(record.id, { ...record, recovered: true });
+      if (
+        !record.pid ||
+        !record.identity ||
+        (await processIdentity(record.pid)) !== record.identity
+      )
+        continue;
+      const recovered = { ...record, recovered: true };
+      processes.set(record.id, recovered);
+      await probeProcessHealth(recovered);
     }
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
@@ -182,6 +220,11 @@ export async function startPackageProcess(root: string, script: string) {
   };
   const append = (chunk: Buffer) => {
     record.output = (record.output + chunk.toString()).slice(-48_000);
+    registryTimer ??= setTimeout(() => {
+      registryTimer = undefined;
+      void persistProcesses().catch(() => {});
+    }, 250);
+    registryTimer.unref();
   };
   child.stdout?.on('data', append);
   child.stderr?.on('data', append);
@@ -189,11 +232,17 @@ export async function startPackageProcess(root: string, script: string) {
     record.exitCode = code;
     void persistProcesses().catch(() => {});
   });
+  child.once('error', (error) => {
+    record.output = error.message;
+    record.exitCode = null;
+  });
+  if (child.pid) record.identity = await processIdentity(child.pid);
   processes.set(record.id, record);
   await persistProcesses();
   await new Promise((resolve) => setTimeout(resolve, 350));
   if (record.exitCode !== undefined)
     throw new Error(record.output || `Process exited with ${record.exitCode}.`);
+  await probeProcessHealth(record);
   return processView(record);
 }
 
@@ -222,7 +271,7 @@ function processView(record: ProcessRecord) {
     health:
       record.exitCode !== undefined
         ? ('stopped' as const)
-        : uniqueUrls.length
+        : record.ready
           ? ('ready' as const)
           : ('starting' as const),
     output: record.output.slice(-12_000),
@@ -230,7 +279,29 @@ function processView(record: ProcessRecord) {
 }
 
 export function listPackageProcesses(root: string) {
-  return [...processes.values()].filter((item) => item.root === root).map(processView);
+  const selected = [...processes.values()].filter((item) => item.root === root);
+  selected.forEach((record) => {
+    void probeProcessHealth(record);
+  });
+  return selected.map(processView);
+}
+
+async function probeProcessHealth(record: ProcessRecord) {
+  if (record.probing || record.exitCode !== undefined || Date.now() - (record.probedAt ?? 0) < 2000)
+    return;
+  const url = processView(record).urls[0];
+  if (!url) return;
+  record.probing = true;
+  try {
+    const response = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(2000) });
+    record.ready = response.ok;
+    await response.body?.cancel();
+  } catch {
+    record.ready = false;
+  } finally {
+    record.probing = false;
+    record.probedAt = Date.now();
+  }
 }
 
 export async function stopPackageProcess(root: string, id: string) {
@@ -239,11 +310,18 @@ export async function stopPackageProcess(root: string, id: string) {
   if (record.exitCode === undefined) {
     if (record.child) terminate(record.child);
     else if (record.pid && processAlive(record.pid)) {
+      if (!record.identity || (await processIdentity(record.pid)) !== record.identity)
+        throw new Error('Process identity changed; refusing to signal a reused PID.');
       try {
         process.kill(process.platform === 'win32' ? record.pid : -record.pid, 'SIGTERM');
       } catch {}
     }
-    record.exitCode = null;
+    const deadline = Date.now() + 4000;
+    while (processAlive(record.pid) && Date.now() < deadline)
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    if (processAlive(record.pid))
+      throw new Error('Process did not stop. Verify its ownership before retrying.');
+    record.exitCode ??= null;
   }
   await persistProcesses();
   return processView(record);

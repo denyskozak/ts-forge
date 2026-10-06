@@ -1,7 +1,7 @@
 import type { LLMMessage } from './provider';
 /** Retain tool call/result groups together. Never silently truncate source text. */
-export function budgetMessages(messages: LLMMessage[], tokens: number) {
-  const budget = (tokens - 2048) * 2;
+export function budgetMessages(messages: LLMMessage[], tokens: number, toolSchemaCharacters = 0) {
+  const budget = (tokens - 2048) * 2 - toolSchemaCharacters;
   const system = messages[0],
     rest = messages.slice(1);
   const groups: LLMMessage[][] = [];

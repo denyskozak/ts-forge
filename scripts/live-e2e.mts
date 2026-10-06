@@ -45,6 +45,10 @@ interface LiveReport {
 }
 
 const repository = process.cwd();
+const selectedCases = process.env.FORGE_E2E_CASES?.split(',').map((id) => id.trim());
+const caseNames = ['forge-understanding', 'r3f-scene-tool', 'edit-validate-undo'];
+if (selectedCases?.some((id) => !caseNames.includes(id)))
+  throw new Error('Unknown FORGE_E2E_CASES scenario.');
 const contextTokens = Number(process.env.FORGE_E2E_CONTEXT_TOKENS ?? 32768);
 const scenarioTimeout = Number(process.env.FORGE_E2E_TIMEOUT_MS ?? 240000);
 if (!Number.isInteger(contextTokens) || contextTokens < 4096 || contextTokens > 65536)
@@ -306,93 +310,96 @@ try {
       }
       await save();
     };
-    await scenario(async () => {
-      const { result, session } = await runCase(
-        'forge-understanding',
-        sourceCopy,
-        'Understand this Electron TypeScript coding-agent project. Explain the renderer → preload → main → agent flow. Cite src/App.tsx, electron/preload.ts, electron/main.ts and electron/agent.ts, distinguish source evidence from unknowns. Read-only task.',
-      );
-      const answer = session.messages
-        .filter((message) => message.role === 'assistant')
-        .map((message) => message.content)
-        .join('\n');
-      for (const filename of [
-        'src/App.tsx',
-        'electron/preload.ts',
-        'electron/main.ts',
-        'electron/agent.ts',
-      ])
-        assert.ok(answer.includes(filename), `Missing citation: ${filename}`);
-      assert.equal(session.task?.outcome, 'analysis_only');
-      result.passed = true;
-    });
-    await scenario(async () => {
-      const { result, session } = await runCase(
-        'r3f-scene-tool',
-        scene,
-        'Call inspect_scene with an empty query, then read World.tsx. Report its Canvas, Player frame loop and model asset path with file citations. Only use read tools; keep every file unchanged.',
-      );
-      const tool = session.messages.find(
-        (message) => message.role === 'tool' && message.name === 'inspect_scene',
-      );
-      assert.ok(tool, 'Model did not call inspect_scene');
-      const evidence = JSON.parse(tool.content).evidence;
-      for (const kind of ['canvas', 'frame', 'asset'])
-        assert.ok(
-          evidence.some((item: { kind: string }) => item.kind === kind),
-          `Missing ${kind} evidence`,
+    if (!selectedCases || selectedCases.includes('forge-understanding'))
+      await scenario(async () => {
+        const { result, session } = await runCase(
+          'forge-understanding',
+          sourceCopy,
+          'Understand this Electron TypeScript coding-agent project. Explain the renderer → preload → main → agent flow. Cite src/App.tsx, electron/preload.ts, electron/main.ts and electron/agent.ts, distinguish source evidence from unknowns. Read-only task.',
         );
-      assert.ok(
-        session.messages.some(
-          (message) =>
-            message.role === 'tool' && ['read_file', 'read_files'].includes(message.name ?? ''),
-        ),
-        'Model did not read the scene',
-      );
-      result.passed = true;
-    });
-    await scenario(async () => {
-      const { result, session } = await runCase(
-        'edit-validate-undo',
-        edit,
-        'Fix sum in task.ts to add the numeric values, returning 0 for an empty array. Preserve the exported signature. Change only task.ts. Read it first, apply the edit with review, then run typescript.check for tsconfig.json. No clarification is needed.',
-        true,
-      );
-      assert.notEqual(
-        await fs.readFile(path.join(edit, 'task.ts'), 'utf8'),
-        original,
-        'No change was applied',
-      );
-      const receipt = session.task?.validations.findLast(
-        (check) => check.recipe === 'typescript.check',
-      );
-      const passed =
-        receipt?.status === 'passed' && receipt.fingerprint === session.task?.fingerprint;
+        const answer = session.messages
+          .filter((message) => message.role === 'assistant')
+          .map((message) => message.content)
+          .join('\n');
+        for (const filename of [
+          'src/App.tsx',
+          'electron/preload.ts',
+          'electron/main.ts',
+          'electron/agent.ts',
+        ])
+          assert.ok(answer.includes(filename), `Missing citation: ${filename}`);
+        assert.equal(session.task?.outcome, 'analysis_only');
+        result.passed = true;
+      });
+    if (!selectedCases || selectedCases.includes('r3f-scene-tool'))
+      await scenario(async () => {
+        const { result, session } = await runCase(
+          'r3f-scene-tool',
+          scene,
+          'Call inspect_scene with an empty query, then read World.tsx. Report its Canvas, Player frame loop and model asset path with file citations. Only use read tools; keep every file unchanged.',
+        );
+        const tool = session.messages.find(
+          (message) => message.role === 'tool' && message.name === 'inspect_scene',
+        );
+        assert.ok(tool, 'Model did not call inspect_scene');
+        const evidence = JSON.parse(tool.content).evidence;
+        for (const kind of ['canvas', 'frame', 'asset'])
+          assert.ok(
+            evidence.some((item: { kind: string }) => item.kind === kind),
+            `Missing ${kind} evidence`,
+          );
+        assert.ok(
+          session.messages.some(
+            (message) =>
+              message.role === 'tool' && ['read_file', 'read_files'].includes(message.name ?? ''),
+          ),
+          'Model did not read the scene',
+        );
+        result.passed = true;
+      });
+    if (!selectedCases || selectedCases.includes('edit-validate-undo'))
+      await scenario(async () => {
+        const { result, session } = await runCase(
+          'edit-validate-undo',
+          edit,
+          'Fix sum in task.ts to add the numeric values, returning 0 for an empty array. Preserve the exported signature. Change only task.ts. Read it first, apply the edit with review, then run typescript.check for tsconfig.json. No clarification is needed.',
+          true,
+        );
+        assert.notEqual(
+          await fs.readFile(path.join(edit, 'task.ts'), 'utf8'),
+          original,
+          'No change was applied',
+        );
+        const receipt = session.task?.validations.findLast(
+          (check) => check.recipe === 'typescript.check',
+        );
+        const passed =
+          receipt?.status === 'passed' && receipt.fingerprint === session.task?.fingerprint;
 
-      assert.notEqual(
-        session.task?.outcome,
-        'completed_verified',
-        'Model self-certified without human acceptance',
-      );
-      try {
-        result.behavior = await checkSumFixture(edit, path.join(temp!, 'behavior'));
-      } finally {
-        const sets = session.changeSets?.filter((set) => set.status === 'applied') ?? [];
-        assert.ok(sets.length, 'Missing applied changeset');
-        await page.reload();
-        // Persisted evidence and undo cross the same production IPC boundary after renderer reload.
-        const persisted = (await page.evaluate(() => window.forge!.state())).sessions.find(
-          (item) => item.id === session.id,
-        )!;
-        assert.deepEqual(persisted.task?.validations, session.task?.validations);
-        for (const set of [...sets].reverse())
-          await page.evaluate((id) => window.forge!.undoChangeSet(id), set.id);
-        assert.equal(await fs.readFile(path.join(edit, 'task.ts'), 'utf8'), original);
-        result.undoRestored = true;
-      }
-      assert.ok(passed, 'Agent did not obtain a passing real TypeScript validation');
-      result.passed = true;
-    });
+        assert.notEqual(
+          session.task?.outcome,
+          'completed_verified',
+          'Model self-certified without human acceptance',
+        );
+        try {
+          result.behavior = await checkSumFixture(edit, path.join(temp!, 'behavior'));
+        } finally {
+          const sets = session.changeSets?.filter((set) => set.status === 'applied') ?? [];
+          assert.ok(sets.length, 'Missing applied changeset');
+          await page.reload();
+          // Persisted evidence and undo cross the same production IPC boundary after renderer reload.
+          const persisted = (await page.evaluate(() => window.forge!.state())).sessions.find(
+            (item) => item.id === session.id,
+          )!;
+          assert.deepEqual(persisted.task?.validations, session.task?.validations);
+          for (const set of [...sets].reverse())
+            await page.evaluate((id) => window.forge!.undoChangeSet(id), set.id);
+          assert.equal(await fs.readFile(path.join(edit, 'task.ts'), 'utf8'), original);
+          result.undoRestored = true;
+        }
+        assert.ok(passed, 'Agent did not obtain a passing real TypeScript validation');
+        result.passed = true;
+      });
     assert.deepEqual(pageErrors, [], 'Renderer errors');
     report.status = report.cases.every((item) => item.passed) ? 'passed' : 'failed';
     if (report.status === 'failed') process.exitCode = 1;

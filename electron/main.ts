@@ -24,7 +24,8 @@ import { analyzeImpact, closeAnalysis, invalidateAnalysis } from './language-too
 import { Trainer, exportDataset } from './training';
 import { models, testConnection } from './provider';
 import { sshProfileSchema, testSsh } from './ssh';
-import { closeInteractiveBrowser } from './project-runtime';
+import { closeInteractiveBrowser, showInteractiveBrowser, browserOpen } from './project-runtime';
+import { mcpConnections, connectMcp, disconnectMcp, closeMcpConnections } from './mcp-client';
 import {
   configureProcessRegistry,
   discoverPackageScripts,
@@ -206,9 +207,52 @@ app
       processes: store.value.workspacePath ? listPackageProcesses(store.value.workspacePath) : [],
     }));
     handle('settings', async (value) => {
+      if (agent.busy) throw new Error('Wait for the active task before changing its settings.');
+      await closeMcpConnections();
       store.value.settings = settingsSchema.parse(value);
       await store.save();
       return store.value.settings;
+    });
+    handle('mcp-connections', () =>
+      mcpConnections(store.value.settings.mcpServers, store.value.workspacePath ?? ''),
+    );
+    handle('connect-mcp', (id) =>
+      exclusive(async () => {
+        const profile = store.value.settings.mcpServers.find(
+          (item) => item.id === z.string().uuid().parse(id),
+        );
+        if (!profile || !store.value.workspacePath)
+          throw new Error('Configure a server and open a workspace first.');
+        return connectMcp(profile, store.value.workspacePath, store, AbortSignal.timeout(30000));
+      }),
+    );
+    handle('disconnect-mcp', (id) =>
+      exclusive(() => disconnectMcp(z.string().uuid().parse(id), store)),
+    );
+    handle('show-browser', () => showInteractiveBrowser());
+    handle('open-browser', (value) =>
+      exclusive(async () => {
+        const root = store.value.workspacePath;
+        if (!root) throw new Error('Open a workspace first.');
+        const url = z.string().url().max(500).parse(value);
+        const urls = listPackageProcesses(root)
+          .filter((item) => item.running)
+          .flatMap((item) => item.urls);
+        if (!urls.includes(url))
+          throw new Error('Choose a URL from a managed process in this workspace.');
+        await browserOpen(url, AbortSignal.timeout(20000), urls);
+        showInteractiveBrowser();
+      }),
+    );
+    handle('preview-image', async (filename) => {
+      const target = path.resolve(z.string().max(4000).parse(filename));
+      const directory = path.join(store.directory, 'previews');
+      if (path.dirname(target) !== directory || !/^[a-f0-9-]+\.png$/.test(path.basename(target)))
+        throw new Error('Image is not a Forge preview artifact.');
+      const stat = await fs.lstat(target);
+      if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 8_000_000)
+        throw new Error('Invalid preview image.');
+      return 'data:image/png;base64,' + (await fs.readFile(target)).toString('base64');
     });
     handle('models', () => models(store.value.settings.endpoint));
     handle('test-connection', (endpoint, model) => {
@@ -466,6 +510,11 @@ app
       );
     });
     handle('stop', () => agent.stop());
+    handle('resume', (id) => {
+      if (maintenance || trainer.isRunning)
+        throw new Error('Wait for maintenance or training before resuming.');
+      return agent.resume(z.string().uuid().parse(id));
+    });
     handle('approve', (id, allow) =>
       agent.approve(z.string().uuid().parse(id), z.boolean().parse(allow)),
     );
@@ -571,6 +620,7 @@ app.on('before-quit', (event) => {
     closeAnalysis();
     await stopAllPackageProcesses();
     await closeInteractiveBrowser();
+    await closeMcpConnections();
     await store?.flush();
   })().finally(() => app.quit());
 });

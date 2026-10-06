@@ -38,6 +38,7 @@ import { MessageHistory } from './components/MessageHistory';
 import { Diff } from './components/Diff';
 import { VoiceInput } from './components/VoiceInput';
 import { TaskPanel, ChangeSetSummary } from './components/TaskPanel';
+import { TaskTimeline } from './components/TaskTimeline';
 import Training from './TrainingPage';
 import { useAgentEvents } from './hooks/useAgentEvents';
 import { initialRunView, runViewReducer } from './state/run-view';
@@ -106,6 +107,8 @@ export default function App() {
     changes,
     task,
     changeSets,
+    checkpoint,
+    toolCount,
   } = runView;
   const [prompt, setPrompt] = useState('');
   const [customAnswer, setCustomAnswer] = useState('');
@@ -114,7 +117,7 @@ export default function App() {
     setCustomAnswer('');
     setAnswerPending(false);
   }, [clarification?.id]);
-  const [rightOpen, setRightOpen] = useState(true);
+  const [rightOpen, setRightOpen] = useState(false);
   const [rightTab, setRightTab] = useState<'context' | 'changes'>('context'),
     [file, setFile] = useState<{ path: string; content: string }>();
   const [trainingLog, setTrainingLog] = useState(''),
@@ -406,13 +409,16 @@ export default function App() {
     },
     [sessionId, notify],
   );
-  async function readFile(path: string) {
-    try {
-      setFile({ path, content: await api.readFile(path) });
-    } catch (e) {
-      notify(e);
-    }
-  }
+  const readFile = useCallback(
+    async (path: string) => {
+      try {
+        setFile({ path, content: await api.readFile(path) });
+      } catch (e) {
+        notify(e);
+      }
+    },
+    [notify],
+  );
   const sessions = useMemo(
     () => state.sessions.filter((s) => s.workspace === state.workspace?.path),
     [state.sessions, state.workspace?.path],
@@ -590,7 +596,10 @@ export default function App() {
             <button
               className="icon-button"
               title="Toggle context panel"
-              onClick={() => setRightOpen(!rightOpen)}
+              aria-label={rightOpen ? 'Hide context panel' : 'Show context panel'}
+              aria-expanded={rightOpen}
+              aria-controls="workspace-context"
+              onClick={() => setRightOpen((open) => !open)}
             >
               {rightOpen ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />}
             </button>
@@ -631,6 +640,7 @@ export default function App() {
                         key={sessionId ?? 'new'}
                         messages={messages}
                         onCapture={capture}
+                        onRead={readFile}
                       />
                       {busy && (
                         <article className="message assistant">
@@ -664,6 +674,19 @@ export default function App() {
                   )}
                 </div>
                 <div className="composer-area">
+                  <TaskTimeline
+                    checkpoint={checkpoint}
+                    toolCount={toolCount}
+                    busy={busy}
+                    onResume={() => {
+                      if (!sessionId || busy) return;
+                      dispatchRun({ type: 'start' });
+                      void api.resume(sessionId).catch((error) => {
+                        dispatchRun({ type: 'start-failed' });
+                        notify(error);
+                      });
+                    }}
+                  />
                   {task && (
                     <TaskPanel task={task} sessionId={sessionId} busy={busy} onError={notify} />
                   )}
@@ -749,7 +772,9 @@ export default function App() {
                                       ? 'Start process'
                                       : approval.kind === 'browser'
                                         ? 'Open browser'
-                                        : 'Run check'}
+                                        : approval.kind === 'mcp'
+                                          ? 'Allow MCP action'
+                                          : 'Run check'}
                         <Check size={14} />
                       </button>
                     </div>
@@ -1040,7 +1065,7 @@ export default function App() {
             )}
           </main>
           {rightOpen && (
-            <aside className="context-panel">
+            <aside id="workspace-context" className="context-panel">
               <div className="context-tabs">
                 <button
                   className={rightTab === 'context' ? 'active' : ''}

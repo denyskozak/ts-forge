@@ -9,7 +9,7 @@
   background: #111214;
   font-synthesis: none;
   font-weight: 400;
-  font-size: 13px;
+  font-size: 15px;
   --bg: #111214;
   --sidebar: #141517;
   --panel: #151618;
@@ -111,11 +111,11 @@ p {
   margin: 0;
 }
 h3 {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 550;
 }
 small {
-  font-size: 11px;
+  font-size: 13px;
 }
 .app-shell {
   height: 100dvh;
@@ -163,7 +163,7 @@ small {
   flex-wrap: wrap;
   gap: 8px;
   color: #b9b2ab;
-  font-size: 11px;
+  font-size: 13px;
 }
 .tool-artifact > div {
   display: flex;
@@ -234,13 +234,13 @@ small {
 .process-meta {
   gap: 10px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   margin: 7px 0;
 }
 .process-url {
   color: var(--accent);
   padding: 3px 0;
-  font-size: 11px;
+  font-size: 13px;
 }
 .process-log {
   height: 150px;
@@ -249,7 +249,7 @@ small {
   border: 1px solid #25262a;
   border-radius: 7px;
   padding: 10px;
-  font-size: 10px;
+  font-size: 12px;
   color: #b8bbc2;
   margin: 10px 0;
 }
@@ -389,7 +389,7 @@ small {
 }
 .version {
   font-family: 'JetBrains Mono';
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 400;
   letter-spacing: 1px;
   border: 1px solid #454035;
@@ -417,7 +417,7 @@ small {
   flex: 1;
 }
 .project-picker strong {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   display: block;
   overflow: hidden;
@@ -425,7 +425,7 @@ small {
   white-space: nowrap;
 }
 .project-picker span {
-  font-size: 10px;
+  font-size: 12px;
   color: #7f8188;
   display: block;
   margin-top: 4px;
@@ -454,7 +454,7 @@ small {
   justify-content: space-between;
   padding: 3px 5px 7px 8px;
   color: #747780;
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 1.2px;
 }
 .workspace-row {
@@ -486,13 +486,13 @@ small {
   white-space: nowrap;
 }
 .workspace-row strong {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
   color: #d0cdc8;
 }
 .workspace-row small {
   margin-top: 3px;
-  font-size: 8px;
+  font-size: 10px;
   color: #73757d;
 }
 .workspace-remove {
@@ -516,11 +516,11 @@ small {
   padding: 9px 7px;
   border-top: 1px solid #303136;
   color: #9799a1;
-  font-size: 10px;
+  font-size: 12px;
 }
 .nav-caption,
 .session-heading {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 1.3px;
   color: #696b73;
   font-weight: 600;
@@ -537,7 +537,7 @@ small {
   margin: 2px 0;
   color: #8f9199;
   gap: 12px;
-  font-size: 12px;
+  font-size: 14px;
 }
 .nav-item:hover {
   background: #1e1f22;
@@ -556,13 +556,13 @@ small {
   border-radius: 2px;
 }
 .nav-item kbd {
-  font-size: 9px;
+  font-size: 11px;
   margin-left: auto;
   color: #9e816b;
   letter-spacing: -0.3px;
 }
 .nav-new {
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 0.7px;
   border: 1px solid #35363c;
   border-radius: 3px;
@@ -595,7 +595,7 @@ small {
 .session-empty {
   position: relative;
   padding: 8px 10px 8px 24px;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.9;
   color: #989aa1;
 }
@@ -605,7 +605,7 @@ small {
   top: 16px;
 }
 .session-empty > span:last-child {
-  font-size: 10px;
+  font-size: 12px;
   color: #63656d;
 }
 .session-link {
@@ -613,7 +613,7 @@ small {
   justify-content: flex-start;
   text-align: left;
   color: #898b94;
-  font-size: 11px;
+  font-size: 13px;
   padding: 10px;
   border-radius: 5px;
 }
@@ -643,12 +643,12 @@ small {
   padding-top: 1px;
 }
 .private-card strong {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   color: #c5cdc3;
 }
 .private-card p {
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.75;
   color: #7e887d;
   margin-top: 5px;
@@ -692,16 +692,16 @@ small {
   border: 1px solid #3c3631;
   color: #c4ae9a;
   border-radius: 7px;
-  font-size: 12px;
+  font-size: 14px;
 }
 .sidebar-footer > span:nth-child(2) {
-  font-size: 10px;
+  font-size: 12px;
   flex: 1;
   color: #b0b1b6;
 }
 .sidebar-footer small {
   display: block;
-  font-size: 9px;
+  font-size: 11px;
   color: #686b73;
   margin-top: 4px;
 }
@@ -728,7 +728,7 @@ small {
   gap: 13px;
 }
 .breadcrumbs {
-  font-size: 11px;
+  font-size: 13px;
   color: #747780;
 }
 .breadcrumbs strong {
@@ -739,7 +739,7 @@ small {
   color: #45474f;
 }
 .session-label {
-  font-size: 9px;
+  font-size: 11px;
   border: 1px solid #2c2d32;
   padding: 4px 7px;
   border-radius: 4px;
@@ -751,7 +751,7 @@ small {
 }
 .local-label {
   font-family: 'JetBrains Mono';
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 1.5px;
   display: flex;
   align-items: center;
@@ -784,7 +784,7 @@ small {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: 12px;
   color: #777a83;
   gap: 10px;
   min-height: 57px;
@@ -796,7 +796,7 @@ small {
   min-width: 0;
 }
 .session-toolbar > button {
-  font-size: 10px;
+  font-size: 12px;
   white-space: nowrap;
   color: #888a92;
 }
@@ -853,7 +853,7 @@ small {
   resize: none;
   padding: 18px 18px 8px;
   min-height: 75px;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.6;
   max-height: 180px;
 }
@@ -868,7 +868,7 @@ small {
   gap: 10px;
 }
 .context-button {
-  font-size: 10px;
+  font-size: 12px;
   color: #87888f;
   border: 1px solid #38383d;
   border-radius: 5px;
@@ -887,7 +887,7 @@ small {
   min-width: 0;
 }
 .model-button {
-  font-size: 10px;
+  font-size: 12px;
   color: #aaa6a3;
   max-width: 220px;
   text-overflow: ellipsis;
@@ -923,7 +923,7 @@ small {
   border-radius: 7px;
   background: #211c19;
   color: #a89483;
-  font-size: 9px;
+  font-size: 11px;
   white-space: nowrap;
 }
 .voice-active canvas {
@@ -957,7 +957,7 @@ small {
   display: flex;
   justify-content: space-between;
   margin: 10px 2px 0;
-  font-size: 9px;
+  font-size: 11px;
   color: #61646d;
 }
 .composer-footnote > span {
@@ -966,7 +966,7 @@ small {
   gap: 5px;
 }
 .composer-footnote kbd {
-  font-size: 9px;
+  font-size: 11px;
   color: #74757b;
 }
 .footnote-dot {
@@ -992,7 +992,7 @@ small {
 }
 .context-tabs > button:not(.icon-button) {
   height: 100%;
-  font-size: 11px;
+  font-size: 13px;
   color: #71737c;
   position: relative;
   padding: 0;
@@ -1013,7 +1013,7 @@ small {
   margin-left: auto;
 }
 .context-tabs > button > span {
-  font-size: 9px;
+  font-size: 11px;
   border-radius: 4px;
   padding: 1px 4px;
   background: #363029;
@@ -1027,7 +1027,7 @@ small {
   justify-content: space-between;
   align-items: center;
   font-family: 'JetBrains Mono';
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 1.2px;
   color: #7e7f88;
   margin-bottom: 19px;
@@ -1036,7 +1036,7 @@ small {
   color: #64666e;
 }
 .context-label > span:not(.badge) {
-  font-size: 9px;
+  font-size: 11px;
   border: 1px solid #313238;
   padding: 1px 4px;
   border-radius: 4px;
@@ -1065,12 +1065,12 @@ small {
   margin: 10px 0 20px;
 }
 .context-empty strong {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 450;
   color: #bab9b6;
 }
 .context-empty p {
-  font-size: 10px;
+  font-size: 12px;
   color: #72747e;
   line-height: 1.9;
   margin: 9px 0 16px;
@@ -1081,7 +1081,7 @@ small {
   border-radius: 6px;
   padding: 8px 11px;
   color: #bdbbb9;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 450;
   white-space: nowrap;
 }
@@ -1090,7 +1090,7 @@ small {
   border-color: #55504b;
 }
 .context-empty .button {
-  font-size: 10px;
+  font-size: 12px;
   padding: 7px 12px;
 }
 .context-skill {
@@ -1115,17 +1115,17 @@ small {
   background: #191a1c;
   text-align: center;
   color: #777a82;
-  font-size: 8px;
+  font-size: 10px;
 }
 .analysis-metrics strong {
   display: block;
   margin-bottom: 3px;
   color: #cbc7c1;
-  font-size: 12px;
+  font-size: 14px;
 }
 .typescript-analysis-summary > p {
   color: #8c8e96;
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.6;
   margin-bottom: 11px;
 }
@@ -1140,7 +1140,7 @@ small {
   align-items: center;
   gap: 7px;
   color: #64666d;
-  font-size: 9px;
+  font-size: 11px;
 }
 .analysis-tools > span.ready {
   color: #9ca69b;
@@ -1166,7 +1166,7 @@ small {
   border-radius: 5px;
   color: #86abc7;
   background: #1b2a36;
-  font-size: 10px;
+  font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1183,21 +1183,21 @@ small {
   color: #d3d3d5;
   border-color: #414248;
   background: #252629;
-  font-size: 16px;
+  font-size: 18px;
 }
 .context-skill > span:nth-child(2) {
-  font-size: 11px;
+  font-size: 13px;
   flex: 1;
   color: #babcc3;
 }
 .context-skill small {
   display: block;
   margin-top: 4px;
-  font-size: 9px;
+  font-size: 11px;
   color: #727580;
 }
 .text-button {
-  font-size: 10px;
+  font-size: 12px;
   color: #a19c91;
   padding: 0;
   gap: 6px;
@@ -1210,7 +1210,7 @@ small {
   align-items: center;
   justify-content: space-between;
   margin-top: 17px;
-  font-size: 10px;
+  font-size: 12px;
   color: #858890;
 }
 .harness-row > span:first-child {
@@ -1219,7 +1219,7 @@ small {
   gap: 9px;
 }
 .harness-row > span:last-child {
-  font-size: 9px;
+  font-size: 11px;
   color: #a0aaa1;
 }
 .harness-row > .amber-text {
@@ -1246,19 +1246,19 @@ small {
   justify-content: center;
 }
 .local-device strong {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 450;
   color: #aaa9a3;
 }
 .local-device span {
-  font-size: 9px;
+  font-size: 11px;
   display: block;
   color: #62666e;
   margin-top: 5px;
 }
 .small-note {
   margin-top: 17px;
-  font-size: 9px;
+  font-size: 11px;
   color: #707c70;
   display: flex;
   align-items: center;
@@ -1272,7 +1272,7 @@ small {
   align-items: center;
   justify-content: space-between;
   padding: 0 19px;
-  font-size: 9px;
+  font-size: 11px;
   color: #72757e;
   background: #141517;
 }
@@ -1283,7 +1283,7 @@ small {
 }
 .statusbar button {
   padding: 0;
-  font-size: 9px;
+  font-size: 11px;
   color: inherit;
 }
 .status-separator {
@@ -1296,13 +1296,13 @@ small {
   margin-left: 15px;
   color: #51545e;
   font-family: 'JetBrains Mono';
-  font-size: 8px;
+  font-size: 10px;
 }
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 400;
   letter-spacing: 0.2px;
   line-height: 1.4;
@@ -1333,7 +1333,7 @@ small {
 }
 .page-header > .eyebrow {
   justify-content: flex-start;
-  font-size: 8px;
+  font-size: 10px;
 }
 .page-header h1 {
   font-size: 34px;
@@ -1344,7 +1344,7 @@ small {
   margin: 15px 0 13px;
 }
 .page-header > p {
-  font-size: 12px;
+  font-size: 14px;
   color: #878a93;
   line-height: 1.9;
   max-width: 540px;
@@ -1365,7 +1365,7 @@ small {
   margin-bottom: 7px;
 }
 .connection-card code {
-  font-size: 10px;
+  font-size: 12px;
   color: #858992;
 }
 .connection-card > .button {
@@ -1392,10 +1392,10 @@ small {
 }
 .section-heading > span {
   color: #767b84;
-  font-size: 11px;
+  font-size: 13px;
 }
 .section-heading p {
-  font-size: 11px;
+  font-size: 13px;
   color: #797d87;
   line-height: 1.7;
   margin-top: 6px;
@@ -1417,16 +1417,16 @@ small {
   margin-bottom: 5px;
 }
 .empty-state h3 {
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 450;
   color: #c6c5c3;
 }
 .empty-state p {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.9;
 }
 .empty-state > code {
-  font-size: 11px;
+  font-size: 13px;
   background: #202123;
   border: 1px solid #34353a;
   border-radius: 5px;
@@ -1438,7 +1438,7 @@ small {
 }
 .empty-state > small {
   color: #686d78;
-  font-size: 10px;
+  font-size: 12px;
 }
 .empty-state.compact {
   padding: 37px 20px;
@@ -1454,7 +1454,7 @@ small {
   border-radius: 8px;
   margin: 20px 0;
   color: #93a090;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.8;
 }
 .info-box > svg {
@@ -1484,11 +1484,11 @@ small {
   margin-bottom: 24px;
 }
 .model-card h3 {
-  font-size: 15px;
+  font-size: 17px;
   overflow-wrap: anywhere;
 }
 .model-card p {
-  font-size: 10px;
+  font-size: 12px;
   color: #81858e;
   margin-top: 9px;
 }
@@ -1497,7 +1497,7 @@ small {
   align-items: center;
   justify-content: space-between;
   color: #93938e;
-  font-size: 10px;
+  font-size: 12px;
   margin: 26px 0 20px;
 }
 .model-details > span {
@@ -1516,7 +1516,7 @@ small {
   padding: 9px 13px;
   color: #2a2018;
   font-weight: 550;
-  font-size: 11px;
+  font-size: 13px;
   white-space: nowrap;
 }
 .primary:not(:disabled):hover {
@@ -1553,7 +1553,7 @@ small {
   color: #9ebfd4;
   background: #223c51;
   border: 1px solid #365870;
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 650;
 }
 .skill-logo.react {
@@ -1593,12 +1593,12 @@ small {
   background: #e4b084;
 }
 .skill-card h2 {
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 500;
   margin-bottom: 11px;
 }
 .skill-card > p {
-  font-size: 11px;
+  font-size: 13px;
   color: #858892;
   line-height: 1.85;
   min-height: 42px;
@@ -1610,14 +1610,14 @@ small {
   margin: 23px 0;
 }
 .tags .badge {
-  font-size: 8px;
+  font-size: 10px;
 }
 .skill-instructions {
   border-top: 1px solid #303035;
   padding-top: 17px;
 }
 .skill-instructions summary {
-  font-size: 10px;
+  font-size: 12px;
   color: #aba399;
   display: flex;
   align-items: center;
@@ -1625,7 +1625,7 @@ small {
   cursor: pointer;
 }
 .skill-instructions p {
-  font-size: 11px;
+  font-size: 13px;
   color: #9c9da4;
   line-height: 1.8;
   margin-top: 15px;
@@ -1641,7 +1641,7 @@ small {
   background: #191a1b;
 }
 .roadmap-card p {
-  font-size: 11px;
+  font-size: 13px;
   color: #7e828c;
   line-height: 1.8;
   margin-top: 8px;
@@ -1657,21 +1657,21 @@ small {
   margin-bottom: 24px;
 }
 .settings-card h3 {
-  font-size: 15px;
+  font-size: 17px;
   margin-bottom: 23px;
 }
 .settings-card label,
 .example-form label {
   display: flex;
   flex-direction: column;
-  font-size: 11px;
+  font-size: 13px;
   color: #b6b6bc;
   gap: 10px;
   margin-bottom: 22px;
 }
 .settings-card small {
   color: #6d737e;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.7;
 }
 .form-row {
@@ -1693,17 +1693,17 @@ small {
   flex-shrink: 0;
 }
 .privacy-item strong {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 450;
 }
 .privacy-item p {
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.8;
   color: #818692;
   margin-top: 7px;
 }
 .privacy-item code {
-  font-size: 10px;
+  font-size: 12px;
   color: #ad967f;
   display: block;
   overflow-wrap: anywhere;
@@ -1717,7 +1717,7 @@ small {
   align-items: center;
   gap: 12px;
   color: #747984;
-  font-size: 10px;
+  font-size: 12px;
   padding: 8px;
 }
 .about-line > svg {
@@ -1725,7 +1725,7 @@ small {
   width: 18px !important;
 }
 .about-line > strong {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 450;
   color: #b1afa9;
 }
@@ -1734,7 +1734,7 @@ small {
 }
 .workspace-name {
   display: flex;
-  font-size: 11px;
+  font-size: 13px;
   justify-content: flex-start;
   width: 100%;
   padding: 0;
@@ -1753,7 +1753,7 @@ small {
   gap: 7px;
   width: 100%;
   font-family: 'JetBrains Mono';
-  font-size: 9px;
+  font-size: 11px;
   color: #8e919b;
   padding: 6px 8px;
   text-align: left;
@@ -1773,7 +1773,7 @@ small {
 }
 .file-count {
   display: block;
-  font-size: 9px;
+  font-size: 11px;
   color: #626671;
   padding: 8px;
 }
@@ -1799,7 +1799,7 @@ small {
   justify-content: center;
   color: #d4a477;
   flex-shrink: 0;
-  font-size: 10px;
+  font-size: 12px;
 }
 .message-avatar > svg {
   width: 14px !important;
@@ -1822,18 +1822,18 @@ small {
   min-height: 28px;
 }
 .message-heading strong {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 550;
 }
 .message-heading > span {
-  font-size: 9px;
+  font-size: 11px;
   color: #646976;
 }
 .message-heading > .icon-button {
   margin-left: auto;
 }
 .markdown {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.95;
   color: #b8bbc3;
 }
@@ -1847,19 +1847,19 @@ small {
   border-radius: 7px;
   overflow: auto;
   line-height: 1.8;
-  font-size: 11px;
+  font-size: 13px;
 }
 .markdown :not(pre) > code {
   background: #28272a;
   color: #d0ae8e;
   padding: 2px 5px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .markdown h1,
 .markdown h2,
 .markdown h3 {
-  font-size: 16px;
+  font-size: 18px;
   margin: 20px 0 10px;
 }
 .markdown ul,
@@ -1883,17 +1883,17 @@ small {
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  font-size: 10px;
+  font-size: 12px;
   color: #a6a697;
   cursor: pointer;
 }
 .tool-message summary > span {
   color: #646b77;
   margin-left: auto;
-  font-size: 9px;
+  font-size: 11px;
 }
 .tool-message pre {
-  font-size: 10px;
+  font-size: 12px;
   color: #9299a4;
   line-height: 1.7;
   padding: 0 13px 8px;
@@ -1945,7 +1945,7 @@ small {
   border: 1px solid #6f5038;
   background: #2a211a;
   border-radius: 8px;
-  font-size: 10px;
+  font-size: 12px;
 }
 .clarification-card {
   position: relative;
@@ -1989,7 +1989,7 @@ small {
 }
 .clarification-custom label {
   color: #c7bdd9;
-  font-size: 12px;
+  font-size: 14px;
 }
 .clarification-custom textarea {
   width: 100%;
@@ -2019,14 +2019,14 @@ small {
 .clarification-heading strong {
   display: block;
   color: #e2dced;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 550;
   line-height: 1.45;
 }
 .clarification-heading span {
   display: block;
   color: #9e97aa;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.55;
   margin-top: 4px;
 }
@@ -2057,12 +2057,12 @@ small {
 }
 .clarification-options strong {
   color: #e3ddec;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 550;
 }
 .clarification-options span {
   color: #9b94a5;
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.45;
   margin-top: 3px;
 }
@@ -2075,7 +2075,7 @@ small {
   min-width: 0;
 }
 .approval-banner strong {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
   color: #d9b797;
   display: block;
@@ -2083,14 +2083,14 @@ small {
 .approval-banner span {
   display: block;
   color: #a99584;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.6;
   margin-top: 4px;
   overflow-wrap: anywhere;
 }
 .approval-banner > button {
   padding: 6px 7px;
-  font-size: 10px;
+  font-size: 12px;
 }
 .approve-button {
   background: #bb8c61;
@@ -2113,7 +2113,7 @@ small {
   display: flex;
   gap: 6px;
   align-items: center;
-  font-size: 10px;
+  font-size: 12px;
   margin-bottom: 9px;
 }
 .change-card strong {
@@ -2121,7 +2121,7 @@ small {
   font-weight: 450;
 }
 .change-card .badge {
-  font-size: 8px;
+  font-size: 10px;
   margin-bottom: 10px;
 }
 .diff {
@@ -2132,7 +2132,7 @@ small {
 .diff pre {
   margin: 0;
   white-space: pre;
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.9;
   padding: 0 7px;
 }
@@ -2167,7 +2167,7 @@ small {
   color: #d8c8b7;
   border-radius: 9px;
   padding: 12px 14px;
-  font-size: 12px;
+  font-size: 14px;
   box-shadow: 0 10px 35px #0008;
 }
 .toast > svg {
@@ -2205,11 +2205,11 @@ small {
   z-index: 1;
 }
 .modal-header h3 {
-  font-size: 13px;
+  font-size: 15px;
   overflow-wrap: anywhere;
 }
 .file-preview {
-  font-size: 11px;
+  font-size: 13px;
   padding: 20px 25px;
   line-height: 1.9;
   color: #b6b9c1;
@@ -2217,7 +2217,7 @@ small {
 }
 .setup-guide {
   padding: 24px;
-  font-size: 12px;
+  font-size: 14px;
   color: #a1a6b0;
   line-height: 1.9;
 }
@@ -2229,7 +2229,7 @@ small {
 }
 .setup-guide strong {
   color: #d4cec7;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
 }
 .setup-guide li p {
@@ -2243,7 +2243,7 @@ small {
   border-radius: 6px;
   margin: 12px 0;
   color: #d3ad88;
-  font-size: 11px;
+  font-size: 13px;
 }
 .training-banner {
   display: flex;
@@ -2266,7 +2266,7 @@ small {
   margin: 19px 0 12px;
 }
 .training-banner p {
-  font-size: 11px;
+  font-size: 13px;
   color: #a18f7d;
   line-height: 1.9;
 }
@@ -2322,7 +2322,7 @@ small {
   border: 0;
 }
 .training-stats > div > span {
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 1.1px;
   color: #777d87;
   font-family: 'JetBrains Mono';
@@ -2337,7 +2337,7 @@ small {
 }
 .training-stats small {
   display: block;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 400;
   color: #747b85;
   margin-top: 7px;
@@ -2349,7 +2349,7 @@ small {
   border-bottom: 1px solid #2b2e35;
 }
 .training-tabs > button {
-  font-size: 12px;
+  font-size: 14px;
   color: #808690;
   padding: 0 1px 14px;
   position: relative;
@@ -2367,7 +2367,7 @@ small {
   background: #d4a47c;
 }
 .training-tabs .badge {
-  font-size: 8px;
+  font-size: 10px;
 }
 .inline-actions {
   display: flex;
@@ -2384,7 +2384,7 @@ small {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 11px;
+  font-size: 13px;
   cursor: pointer;
 }
 .example summary > span:not(.badge) {
@@ -2394,18 +2394,18 @@ small {
   white-space: nowrap;
 }
 .example summary > .badge {
-  font-size: 8px;
+  font-size: 10px;
   color: #95a68e;
 }
 .example > strong {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   color: #a49079;
   margin-top: 20px;
   font-weight: 450;
 }
 .example > pre {
-  font-size: 11px;
+  font-size: 13px;
   color: #a4aab5;
   line-height: 1.8;
   max-height: 220px;
@@ -2419,14 +2419,14 @@ small {
   padding: 22px;
 }
 .example-form > p {
-  font-size: 11px;
+  font-size: 13px;
   color: #848c98;
   line-height: 1.8;
   margin-bottom: 22px;
 }
 .example-form textarea {
   font-family: 'JetBrains Mono';
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.8;
 }
 .training-config {
@@ -2434,7 +2434,7 @@ small {
 }
 .muted-text {
   color: #848c99;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.8;
 }
 .training-config > p {
@@ -2448,7 +2448,7 @@ small {
   flex: 1;
   border-radius: 6px 0 0 6px;
   width: 100%;
-  font-size: 11px;
+  font-size: 13px;
 }
 .input-picker > button {
   border: 1px solid #34353a;
@@ -2469,7 +2469,7 @@ small {
   border: 1px solid #31363c;
   border-radius: 7px;
   padding: 15px;
-  font-size: 10px;
+  font-size: 12px;
   color: #a9b79b;
   line-height: 1.8;
   margin-top: 22px;
@@ -2518,19 +2518,19 @@ small {
     flex-wrap: wrap;
   }
   .context-label {
-    font-size: 8px;
+    font-size: 10px;
   }
   .nav-item {
-    font-size: 11px;
+    font-size: 13px;
   }
   .local-device strong {
-    font-size: 8px;
+    font-size: 10px;
   }
   .local-device span {
-    font-size: 8px;
+    font-size: 10px;
   }
   .composer-footnote {
-    font-size: 8px;
+    font-size: 10px;
   }
 }
 @media (max-height: 800px) {
@@ -2613,7 +2613,7 @@ select {
   gap: 14px;
 }
 .connection-test-actions > span {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
 }
 .connection-result {
@@ -2624,7 +2624,7 @@ select {
   background: #1a271f;
   border-radius: 8px;
   margin-top: 17px;
-  font-size: 12px;
+  font-size: 14px;
 }
 .connection-result > svg {
   flex-shrink: 0;
@@ -2639,14 +2639,14 @@ select {
 }
 .connection-result p {
   color: #aaaeb1;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.8;
   margin: 8px 0;
 }
 .connection-result small {
   color: #949a96;
   font-family: 'JetBrains Mono';
-  font-size: 9px;
+  font-size: 11px;
 }
 .connection-models {
   display: flex;
@@ -2660,7 +2660,7 @@ select {
   align-items: flex-start;
   gap: 10px;
   color: var(--text);
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .settings-check input {
@@ -2673,7 +2673,7 @@ select {
   gap: 9px;
   margin-top: 22px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 .ssh-profiles {
   display: grid;
@@ -2699,7 +2699,7 @@ select {
 
 .settings-paths strong {
   color: var(--text);
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .settings-path {
@@ -2722,24 +2722,24 @@ select {
   color: var(--muted);
 }
 .connection-models button {
-  font-size: 10px;
+  font-size: 12px;
   padding: 5px 7px;
   border: 1px solid #455244;
   border-radius: 5px;
 }
 .project-map-summary strong {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
 }
 .project-map-summary p {
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.7;
   color: #92958f;
   margin: 6px 0;
 }
 .project-map-summary > span {
   font-family: 'JetBrains Mono';
-  font-size: 9px;
+  font-size: 11px;
   color: #b79777;
 }
 .settings-card h3 {
@@ -2748,7 +2748,7 @@ select {
   gap: 9px;
 }
 .large-diff {
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.7;
 }
 .large-diff summary {
@@ -2781,7 +2781,7 @@ select {
   background: #191a1c;
   padding: 12px;
   margin-bottom: 12px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .task-panel {
   max-height: 280px;
@@ -2844,7 +2844,7 @@ select {
   white-space: pre-wrap;
   max-height: 180px;
   overflow: auto;
-  font-size: 10px;
+  font-size: 12px;
 }
 .impact-preview {
   margin: 12px 0;
@@ -2854,9 +2854,100 @@ select {
 }
 .impact-preview button {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   color: #c6ab8d;
   text-align: left;
   overflow-wrap: anywhere;
   padding: 3px 0;
+}
+
+.task-timeline {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+.task-timeline ol {
+  display: flex;
+  gap: 14px;
+  padding: 0;
+  margin: 0 0 8px;
+  list-style: none;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+.task-timeline li {
+  text-transform: capitalize;
+}
+.task-timeline li[aria-current='step'] {
+  color: var(--accent);
+  font-weight: 600;
+}
+.task-timeline > div {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.task-timeline details {
+  max-width: 100%;
+}
+.task-timeline summary {
+  cursor: pointer;
+}
+.artifact-image {
+  display: block;
+  max-width: 100%;
+  max-height: 520px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.tool-artifact {
+  flex-wrap: wrap;
+}
+.tool-artifact details,
+.tool-artifact .artifact-image {
+  flex-basis: 100%;
+}
+.tool-artifact pre,
+.mcp-settings pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 300px;
+  overflow: auto;
+}
+.mcp-settings {
+  padding: 24px;
+}
+.mcp-settings fieldset {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin: 20px 0;
+  padding: 16px;
+}
+.mcp-settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+.mcp-settings label.task-criterion {
+  flex-direction: row;
+}
+.mcp-settings input,
+.mcp-settings textarea,
+.mcp-settings select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  font: inherit;
+}
+.mcp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }

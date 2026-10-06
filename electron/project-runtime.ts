@@ -143,29 +143,83 @@ function localPreviewUrl(value: string) {
   const parsed = new URL(value);
   if (parsed.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(parsed.hostname))
     throw new Error('Interactive browser access is limited to local HTTP preview URLs.');
+  if (parsed.username || parsed.password)
+    throw new Error('Credentials are not allowed in local preview URLs.');
   if (!parsed.port) throw new Error('Local preview URL must include a port.');
   return parsed.toString();
 }
 
-export async function checkLocalHttp(url: string, signal: AbortSignal) {
+export async function checkLocalHttp(
+  url: string,
+  signal: AbortSignal,
+  input: {
+    method?: string;
+    body?: string;
+    expectedStatus?: number;
+    expectedJson?: Record<string, unknown>;
+  } = {},
+) {
   const target = localPreviewUrl(url);
   const startedAt = Date.now();
   const response = await fetch(target, {
-    method: 'GET',
+    method: input.method ?? 'GET',
+    ...(input.body !== undefined
+      ? { body: input.body, headers: { 'Content-Type': 'application/json' } }
+      : {}),
     redirect: 'manual',
     signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
   });
+  let body = '';
+  let truncated = false;
+  if (response.body) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let bytes = 0;
+    try {
+      while (true) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        bytes += chunk.value.length;
+        body += decoder.decode(chunk.value.slice(0, Math.max(0, 12000 - body.length)), {
+          stream: true,
+        });
+        if (bytes >= 12000) {
+          truncated = true;
+          await reader.cancel();
+          break;
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+  let json: Record<string, unknown> | undefined;
+  try {
+    json = JSON.parse(body);
+  } catch {}
+  const assertions = [
+    ...(input.expectedStatus === undefined
+      ? []
+      : [{ name: 'status', passed: response.status === input.expectedStatus }]),
+    ...Object.entries(input.expectedJson ?? {}).map(([key, expected]) => ({
+      name: `json.${key}`,
+      passed: JSON.stringify(json?.[key]) === JSON.stringify(expected),
+    })),
+  ];
   return {
     url: target,
     status: response.status,
     ok: response.ok,
     contentType: response.headers.get('content-type'),
     latencyMs: Date.now() - startedAt,
-    body: (await response.text()).slice(0, 12_000),
+    body,
+    truncated,
+    assertions,
+    ...(assertions.length ? { passed: assertions.every((item) => item.passed) } : {}),
   };
 }
 
-export async function browserOpen(url: string, signal: AbortSignal) {
+export async function browserOpen(url: string, signal: AbortSignal, relatedUrls: string[] = []) {
   const target = localPreviewUrl(url);
   const { BrowserWindow } = await import('electron');
   interactiveWindow?.destroy();
@@ -182,27 +236,65 @@ export async function browserOpen(url: string, signal: AbortSignal) {
       partition: `forge-local-preview-${randomUUID()}`,
     },
   });
+  interactiveWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  interactiveWindow.webContents.session.setPermissionRequestHandler(
+    (_contents, _permission, callback) => callback(false),
+  );
+  const origins = new Set(
+    [target, ...relatedUrls].map((value) => new URL(localPreviewUrl(value)).origin),
+  );
+  interactiveWindow.webContents.on('will-navigate', (event, value) => {
+    try {
+      if (!origins.has(new URL(value).origin)) event.preventDefault();
+    } catch {
+      event.preventDefault();
+    }
+  });
   interactiveWindow.webContents.session.webRequest.onBeforeRequest(
     { urls: ['http://*/*', 'https://*/*'] },
     (details, callback) => {
       try {
         const request = new URL(details.url);
         callback({
-          cancel:
-            request.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(request.hostname),
+          cancel: !origins.has(request.origin),
         });
       } catch {
         callback({ cancel: true });
       }
     },
   );
-  interactiveWindow.webContents.on('console-message', (_event, level, message) => {
-    browserConsole.push(`${level}: ${message}`);
+  interactiveWindow.webContents.on('console-message', (event) => {
+    browserConsole = [...browserConsole, `${event.level}: ${event.message.slice(0, 2000)}`].slice(
+      -40,
+    );
   });
   interactiveWindow.webContents.on('did-fail-load', (_event, code, description, failedUrl) => {
-    browserFailures.push(`${code} ${failedUrl} — ${description}`);
+    browserFailures = [...browserFailures, `${code} ${failedUrl} — ${description}`].slice(-40);
   });
-  await interactiveWindow.loadURL(target);
+  interactiveWindow.webContents.session.webRequest.onErrorOccurred((details) => {
+    browserFailures = [
+      ...browserFailures,
+      `${details.method} ${details.url} — ${details.error}`,
+    ].slice(-40);
+  });
+  interactiveWindow.webContents.session.webRequest.onCompleted((details) => {
+    if (details.statusCode >= 400)
+      browserFailures = [
+        ...browserFailures,
+        `${details.method} ${details.url} — HTTP ${details.statusCode}`,
+      ].slice(-40);
+  });
+  const abort = () => {
+    interactiveWindow?.webContents.stop();
+  };
+  signal.addEventListener('abort', abort, { once: true });
+  const timer = setTimeout(abort, 20_000);
+  try {
+    await interactiveWindow.loadURL(target);
+  } finally {
+    clearTimeout(timer);
+    signal.removeEventListener('abort', abort);
+  }
   signal.throwIfAborted();
   return browserSnapshot();
 }
@@ -219,6 +311,7 @@ export async function browserSnapshot() {
     `(() => ({
     url: location.href,
     title: document.title,
+    viewport: { width: innerWidth, height: innerHeight, scaleFactor: devicePixelRatio },
     text: (document.body.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 12_000),
     elements: [...document.querySelectorAll('a,button,input,textarea,select,[role]')]
       .slice(0, 160)
@@ -228,6 +321,9 @@ export async function browserSnapshot() {
         role: element.getAttribute('role'),
         name: element.getAttribute('aria-label') || element.getAttribute('name') || element.textContent?.trim().slice(0, 160),
         disabled: element.disabled || undefined,
+        selector: (() => { if (!element.dataset.forgeRef) element.dataset.forgeRef = crypto.randomUUID(); return '[data-forge-ref="' + element.dataset.forgeRef + '"]'; })(),
+        visible: !!element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden',
+        value: 'value' in element ? String(element.value).slice(0, 500) : undefined,
       })),
     canvases: document.querySelectorAll('canvas').length,
   }))()`,
@@ -242,10 +338,27 @@ export async function browserSnapshot() {
 
 export async function browserClick(selector: string) {
   const checked = z.string().min(1).max(500).parse(selector);
-  await activePage().executeJavaScript(
-    `(() => { const element = document.querySelector(${JSON.stringify(checked)}); if (!(element instanceof HTMLElement)) throw new Error('Element not found'); element.click(); })()`,
+  if (!(await browserWait(checked, 'visible', 5000, AbortSignal.timeout(6000))).passed)
+    throw new Error('Element did not become visible.');
+  const point = await activePage().executeJavaScript(
+    `(() => { const element = document.querySelector(${JSON.stringify(checked)}); if (!(element instanceof HTMLElement) || element.disabled) throw new Error('Element not actionable'); element.scrollIntoView({ block: 'center' }); const rect = element.getBoundingClientRect(); const x = rect.x + rect.width / 2, y = rect.y + rect.height / 2; const top = document.elementFromPoint(x,y); if (!top || !(top === element || element.contains(top))) throw new Error('Element is covered'); return { x: Math.round(x), y: Math.round(y) }; })()`,
     true,
   );
+  const debuggerSession = activePage().debugger;
+  if (!debuggerSession.isAttached()) debuggerSession.attach('1.3');
+  await debuggerSession.sendCommand('Input.dispatchMouseEvent', {
+    type: 'mousePressed',
+    ...point,
+    button: 'left',
+    clickCount: 1,
+  });
+  await debuggerSession.sendCommand('Input.dispatchMouseEvent', {
+    type: 'mouseReleased',
+    ...point,
+    button: 'left',
+    clickCount: 1,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 100));
   return browserSnapshot();
 }
 
@@ -253,7 +366,7 @@ export async function browserFill(selector: string, value: string) {
   const checked = z.string().min(1).max(500).parse(selector);
   const text = z.string().max(5000).parse(value);
   await activePage().executeJavaScript(
-    `(() => { const element = document.querySelector(${JSON.stringify(checked)}); if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) throw new Error('Editable element not found'); const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(element), 'value')?.set; setter?.call(element, ${JSON.stringify(text)}); element.dispatchEvent(new Event('input', { bubbles: true })); element.dispatchEvent(new Event('change', { bubbles: true })); })()`,
+    `(() => { const element = document.querySelector(${JSON.stringify(checked)}); if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) throw new Error('Editable element not found'); element.focus(); const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(element), 'value')?.set; setter?.call(element, ${JSON.stringify(text)}); element.dispatchEvent(new Event('input', { bubbles: true })); element.dispatchEvent(new Event('change', { bubbles: true })); })()`,
     true,
   );
   return browserSnapshot();
@@ -263,14 +376,26 @@ export async function browserPress(key: string) {
   const checked = z
     .enum(['Enter', 'Escape', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'])
     .parse(key);
-  await activePage().sendInputEvent({
-    type: 'keyDown',
-    keyCode: checked === 'Space' ? ' ' : checked,
-  });
-  await activePage().sendInputEvent({
-    type: 'keyUp',
-    keyCode: checked === 'Space' ? ' ' : checked,
-  });
+  const keys = {
+    Enter: 13,
+    Escape: 27,
+    Tab: 9,
+    ArrowUp: 38,
+    ArrowDown: 40,
+    ArrowLeft: 37,
+    ArrowRight: 39,
+    Space: 32,
+  };
+  const debuggerSession = activePage().debugger;
+  if (!debuggerSession.isAttached()) debuggerSession.attach('1.3');
+  const event = {
+    key: checked === 'Space' ? ' ' : checked,
+    code: checked,
+    windowsVirtualKeyCode: keys[checked],
+    nativeVirtualKeyCode: keys[checked],
+  };
+  await debuggerSession.sendCommand('Input.dispatchKeyEvent', { type: 'keyDown', ...event });
+  await debuggerSession.sendCommand('Input.dispatchKeyEvent', { type: 'keyUp', ...event });
   return browserSnapshot();
 }
 
@@ -286,4 +411,67 @@ export async function browserScreenshot(dataPath: string) {
 export async function closeInteractiveBrowser() {
   interactiveWindow?.destroy();
   interactiveWindow = undefined;
+}
+
+export async function browserWait(
+  selector: string,
+  state: 'visible' | 'hidden' | 'attached',
+  timeoutMs: number,
+  signal: AbortSignal,
+) {
+  z.string().min(1).max(500).parse(selector);
+  const deadline = Date.now() + Math.min(15000, Math.max(100, timeoutMs));
+  while (Date.now() < deadline) {
+    signal.throwIfAborted();
+    const ready = await activePage().executeJavaScript(
+      `(() => { const element = document.querySelector(${JSON.stringify(selector)}); const visible = !!element && !!element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden'; return ${state === 'attached' ? '!!element' : state === 'visible' ? 'visible' : '!visible'}; })()`,
+    );
+    if (ready) return { selector, state, passed: true };
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return { selector, state, passed: false, error: `Timed out after ${timeoutMs}ms` };
+}
+export async function browserAssert(
+  selector: string,
+  condition: 'visible' | 'text' | 'value' | 'count',
+  expected: string,
+  signal: AbortSignal,
+) {
+  const checked = z.string().min(1).max(500).parse(selector);
+  const deadline = Date.now() + 5000;
+  let actual: unknown;
+  while (true) {
+    signal.throwIfAborted();
+    actual = await activePage().executeJavaScript(
+      `(() => { const elements = [...document.querySelectorAll(${JSON.stringify(checked)})]; const element = elements[0]; switch (${JSON.stringify(condition)}) { case 'count': return elements.length; case 'visible': return !!element && !!element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden'; case 'text': return element?.textContent?.trim().slice(0, 5000) ?? ''; case 'value': return element?.value ?? ''; } })()`,
+    );
+    if (String(actual) === expected) return { selector, condition, expected, actual, passed: true };
+    if (Date.now() >= deadline) return { selector, condition, expected, actual, passed: false };
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+export async function browserSelect(selector: string, value: string) {
+  await activePage().executeJavaScript(
+    `(() => { const element = document.querySelector(${JSON.stringify(selector)}); if (!(element instanceof HTMLSelectElement) || element.disabled) throw new Error('Select not actionable'); if (![...element.options].some(option => option.value === ${JSON.stringify(value)})) throw new Error('Option not found'); element.value = ${JSON.stringify(value)}; element.dispatchEvent(new Event('change', { bubbles: true })); })()`,
+    true,
+  );
+  return browserSnapshot();
+}
+export async function browserScroll(selector: string) {
+  await activePage().executeJavaScript(
+    `(() => { const element = document.querySelector(${JSON.stringify(selector)}); if (!element) throw new Error('Element not found'); element.scrollIntoView({ block: 'center' }); })()`,
+  );
+  return browserSnapshot();
+}
+export async function browserViewport(preset: 'desktop' | 'tablet' | 'phone') {
+  activePage();
+  const sizes = { desktop: [1440, 900], tablet: [768, 1024], phone: [390, 844] } as const;
+  const [width, height] = sizes[preset];
+  interactiveWindow!.setContentSize(width, height);
+  return { viewport: preset, ...(await browserSnapshot()) };
+}
+export function showInteractiveBrowser() {
+  activePage();
+  interactiveWindow!.show();
+  interactiveWindow!.focus();
 }

@@ -299,13 +299,21 @@ test('partial file read cannot authorize full replacement', async (t) => {
     if (req.url === '/api/tags') return res.end('{"models":[{"name":"local","size":1}]}');
     if (req.url === '/api/show') return res.end('{}');
     const calls = [
+      {
+        name: 'plan_task',
+        arguments: {
+          goal: 'Edit large file',
+          criteria: ['Preserve the tail'],
+          requiredChecks: [{ recipe: 'typescript.check' }],
+        },
+      },
       { name: 'read_file', arguments: { path: 'large.ts' } },
       { name: 'write_file', arguments: { path: 'large.ts', content: 'lost tail' } },
     ];
     res.end(
       JSON.stringify({
         message:
-          step < 2
+          step < calls.length
             ? { content: '', tool_calls: [{ function: calls[step++] }] }
             : { content: 'Done' },
         done: true,

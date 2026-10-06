@@ -20,11 +20,13 @@
     "eval:understanding": "tsx scripts/evaluate-understanding.mts",
     "test:ui": "npm run build && node scripts/ui-performance.mjs",
     "test:e2e": "tsx scripts/live-e2e.mts",
-    "typecheck:e2e": "tsc --noEmit -p tsconfig.e2e.json"
+    "typecheck:e2e": "tsc --noEmit -p tsconfig.e2e.json",
+    "test:products": "tsx scripts/product-smoke.mts"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "diff": "^8.0.2",
     "ignore": "^7.0.10",
     "lucide-react": "^0.577.0",

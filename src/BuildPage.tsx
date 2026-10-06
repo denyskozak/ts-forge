@@ -236,6 +236,13 @@ export default function BuildPage({
               <button onClick={() => setFrameKey((value) => value + 1)} title="Reload preview">
                 <RefreshCw size={14} />
               </button>
+              <button
+                disabled={!localUrl}
+                onClick={() => void api.openBrowser(localUrl).catch(onError)}
+                title="Open shared agent browser"
+              >
+                <ExternalLink size={14} />
+              </button>
             </div>
           </div>
           <div className={`preview-stage ${viewport}`}>

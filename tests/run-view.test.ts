@@ -100,3 +100,23 @@ test('project-map formatting ranks relevance without changing cached entries', a
   assert.equal(parsed.selectionComplete, false);
   assert.equal(JSON.stringify(map), original);
 });
+
+test('hydration never restores a run from a different workspace', () => {
+  const data = {
+    workspace: { path: '/new-project' },
+    sessions: [session],
+    activeRun: {
+      id: 'r',
+      sessionId: 's',
+      workspace: '/fixture',
+      status: 'completed',
+      label: 'Done',
+    },
+  } as unknown as import('../shared/types').AppState;
+  assert.equal(runViewReducer(initialRunView, { type: 'hydrate', data }), initialRunView);
+  data.workspace!.path = '/fixture';
+  const restored = runViewReducer(initialRunView, { type: 'hydrate', data });
+  assert.equal(restored.sessionId, 's');
+  assert.equal(restored.busy, false);
+  assert.deepEqual(restored.messages, [message]);
+});

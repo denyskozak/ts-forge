@@ -19,10 +19,10 @@ await writeFile(
 );
 await writeFile(
   path.join(project, 'server.mjs'),
-  `import http from 'node:http';
+  String.raw`import http from 'node:http';
 const server = http.createServer((_, response) => {
   response.setHeader('Content-Type', 'text/html');
-  response.end('<main><h1>Forge preview ready</h1><button>Test action</button></main>');
+  response.end('<main><h1>Forge preview ready</h1><label>Name<input id="name"></label><select id="theme"><option value="light">Light</option><option value="dark">Dark</option></select><button id="action" onclick="document.getElementById(\'result\').textContent=\'Clicked\'">Test action</button><p id="result">Ready</p></main>');
 });
 server.listen(0, '127.0.0.1', () => console.log('http://127.0.0.1:' + server.address().port));`,
 );
@@ -40,6 +40,8 @@ await writeFile(
 );
 let step = 0;
 let featureStep = -1;
+let browserStep = -1;
+let browserUrl = '';
 const server = createServer(async (req, res) => {
   let raw = '';
   for await (const chunk of req) raw += chunk;
@@ -49,6 +51,31 @@ const server = createServer(async (req, res) => {
   if (req.url === '/api/show') return res.end('{"capabilities":["tools"]}');
   if (!body.tools)
     return res.end(JSON.stringify({ message: { content: 'OK' }, done: true }) + '\n');
+  if (browserStep >= 0) {
+    const calls = [
+      { name: 'browser_open', arguments: { url: browserUrl } },
+      { name: 'browser_snapshot', arguments: {} },
+      { name: 'browser_fill', arguments: { selector: '#name', value: 'Forge' } },
+      { name: 'browser_select', arguments: { selector: '#theme', value: 'dark' } },
+      { name: 'browser_wait', arguments: { selector: '#action' } },
+      { name: 'browser_click', arguments: { selector: '#action' } },
+      {
+        name: 'browser_assert',
+        arguments: { selector: '#result', condition: 'text', expected: 'Clicked' },
+      },
+      { name: 'browser_viewport', arguments: { preset: 'phone' } },
+      { name: 'browser_screenshot', arguments: {} },
+    ];
+    const call = calls[browserStep++];
+    return res.end(
+      JSON.stringify({
+        message: call
+          ? { content: '', tool_calls: [{ function: call }] }
+          : { content: 'Browser checks passed.' },
+        done: true,
+      }) + '\n',
+    );
+  }
   if (featureStep >= 0) {
     const calls = [
       {
@@ -115,10 +142,26 @@ const server = createServer(async (req, res) => {
     };
   else if (step === 2) {
     message = {
+      content: 'Planning the change.',
+      tool_calls: [
+        {
+          function: {
+            name: 'plan_task',
+            arguments: {
+              goal: 'Change world to forge',
+              criteria: ['The greeting is forge and callers stay compatible'],
+              requiredChecks: [{ recipe: 'typescript.check', project: 'tsconfig.json' }],
+            },
+          },
+        },
+      ],
+    };
+  } else if (step === 3) {
+    message = {
       content: 'Inspecting the source.',
       tool_calls: [{ function: { name: 'read_file', arguments: { path: 'index.ts' } } }],
     };
-  } else if (step === 3) {
+  } else if (step === 4) {
     const source = JSON.parse(body.messages.at(-1).content);
     message = {
       content: 'A targeted change is ready for review.',
@@ -136,7 +179,7 @@ const server = createServer(async (req, res) => {
         },
       ],
     };
-  } else if (step === 4)
+  } else if (step === 5)
     message = {
       content: 'Checking symbols.',
       tool_calls: [
@@ -148,7 +191,7 @@ const server = createServer(async (req, res) => {
         },
       ],
     };
-  else if (step === 5)
+  else if (step === 6)
     message = {
       content: 'Checking the project.',
       tool_calls: [{ function: { name: 'typecheck', arguments: { project: 'tsconfig.json' } } }],
@@ -172,6 +215,18 @@ try {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.getByText('Good ideas deserve').waitFor();
+  await expect(page.locator('.context-panel')).toHaveCount(0);
+  assert.equal(
+    await page.evaluate(() => getComputedStyle(document.documentElement).fontSize),
+    '15px',
+  );
+  await page.getByRole('button', { name: 'Show context panel', exact: true }).click();
+  await expect(page.locator('.context-panel')).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Hide context panel', exact: true }),
+  ).toHaveAttribute('aria-expanded', 'true');
+  await page.getByRole('button', { name: 'Hide context panel', exact: true }).click();
+  await expect(page.locator('.context-panel')).toHaveCount(0);
   assert.equal(await page.evaluate(() => typeof window.forge), 'object');
   assert.equal(await page.evaluate(() => typeof window.require), 'undefined');
   assert.equal(
@@ -282,6 +337,7 @@ try {
   }, project);
   await page.getByRole('button', { name: 'Your workspace Open a project to begin' }).click();
   await page.getByText('Good ideas deserve').waitFor();
+  await page.getByRole('button', { name: 'Show context panel', exact: true }).click();
   await page.getByRole('button', { name: 'View project map' }).waitFor();
   assert.ok(
     (await page.evaluate(() => window.forge.state())).workspace.map.content.includes('hello'),
@@ -297,8 +353,73 @@ try {
   ).toBeVisible();
   await page.getByRole('button', { name: 'Phone', exact: true }).click();
   await expect(page.locator('.preview-stage')).toHaveClass(/phone/);
+  const previousPreviewUrl = await page.evaluate(() =>
+    window.forge.developmentProcesses().then((items) => items.find((item) => item.running).urls[0]),
+  );
   await page.getByRole('button', { name: 'Restart', exact: true }).click();
   await expect(page.getByText('running', { exact: true })).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        window.forge
+          .developmentProcesses()
+          .then((items) => items.find((item) => item.running)?.urls[0]),
+      ),
+    )
+    .not.toBe(previousPreviewUrl);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        window.forge
+          .developmentProcesses()
+          .then((items) => items.some((item) => item.running && item.health === 'ready')),
+      ),
+    )
+    .toBe(true);
+  browserUrl = await page.evaluate(() =>
+    window.forge.developmentProcesses().then((items) => items.find((item) => item.running).urls[0]),
+  );
+  browserStep = 0;
+  await page.getByRole('button', { name: /^Workspace/ }).click();
+  await page
+    .getByRole('textbox', { name: 'Message Forge' })
+    .fill('Inspect the local browser preview and verify its controls.');
+  await page.getByRole('button', { name: 'Send message' }).click();
+  await page.getByRole('button', { name: 'Open browser', exact: true }).click();
+  await page.getByRole('button', { name: 'Stop agent' }).waitFor({ state: 'hidden' });
+  const browserState = await page.evaluate(() => window.forge.state());
+  const browserMessages = browserState.sessions.find(
+    (session) => session.id === browserState.activeRun.sessionId,
+  ).messages;
+  assert.ok(
+    browserMessages.some((message) => message.name === 'browser_assert'),
+    JSON.stringify({ run: browserState.activeRun, messages: browserMessages }),
+  );
+  assert.equal(
+    JSON.parse(browserMessages.find((message) => message.name === 'browser_assert').content).passed,
+    true,
+    JSON.stringify(browserMessages.filter((message) => message.role === 'tool')),
+  );
+  assert.ok(
+    JSON.parse(
+      browserMessages.find((message) => message.name === 'browser_snapshot').content,
+    ).elements.every((element) => element.selector),
+  );
+  const capture = JSON.parse(
+    browserMessages.find((message) => message.name === 'browser_screenshot').content,
+  );
+  assert.equal(capture.viewport.width, 390);
+  await page.getByRole('button', { name: 'View screenshot', exact: true }).click();
+  await expect(page.getByAltText('Captured local preview')).toBeVisible();
+  await expect
+    .poll(() => page.getByAltText('Captured local preview').evaluate((image) => image.naturalWidth))
+    .toBe(390 * capture.viewport.scaleFactor);
+  await assert.rejects(
+    page.evaluate(() => window.forge.previewImage('/etc/passwd')),
+    /preview artifact/,
+  );
+  browserStep = -1;
+  await page.getByRole('button', { name: 'Build loop', exact: true }).click();
   await page.getByRole('button', { name: 'Stop', exact: true }).click();
   await expect(page.getByText(/exit stopped/)).toBeVisible();
   await page.getByRole('button', { name: /^Workspace/ }).click();
@@ -368,6 +489,10 @@ try {
     )
     .toBe('undone');
   assert.equal(await readFile(path.join(project, 'index.ts'), 'utf8'), original);
+  await page.evaluate(async () => {
+    const state = await window.forge.state();
+    await window.forge.settings({ ...state.settings, maxSteps: 3 });
+  });
   featureStep = 0;
   await page
     .getByRole('textbox', { name: 'Message Forge' })
@@ -380,9 +505,18 @@ try {
   await page.getByRole('button', { name: 'Apply changeset', exact: true }).waitFor();
   await page.screenshot({ path: 'docs/forge-task-review.png' });
   await page.getByRole('button', { name: 'Apply changeset', exact: true }).click();
+  await page.getByRole('button', { name: 'Resume task', exact: true }).waitFor();
+  await expect(page.getByRole('region', { name: 'Task progress' })).toContainText('Pass 3');
+  await page.reload();
+  await page.getByRole('button', { name: 'Resume task', exact: true }).click();
   await page.getByRole('button', { name: 'Run check', exact: true }).click();
   await page.getByRole('button', { name: 'Stop agent' }).waitFor({ state: 'hidden' });
   const featureState = await page.evaluate(() => window.forge.state());
+  assert.equal(featureState.sessions[0].checkpoint.step, 5);
+  await page.evaluate(async () => {
+    const state = await window.forge.state();
+    await window.forge.settings({ ...state.settings, maxSteps: 12 });
+  });
   assert.equal(featureState.sessions[0].task.outcome, 'completed_unverified');
   assert.equal(featureState.sessions[0].task.validations.at(-1).status, 'passed');
   assert.match(await readFile(path.join(project, 'index.ts'), 'utf8'), /import/);

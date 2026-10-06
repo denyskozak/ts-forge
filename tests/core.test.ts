@@ -177,11 +177,19 @@ for (const decision of ['approve', 'deny', 'stop'] as const)
         return res.end(JSON.stringify({ models: [{ name: 'test:local', size: 1 }] }));
       if (req.url === '/api/show') return res.end('{}');
       const calls = [
+        {
+          name: 'plan_task',
+          arguments: {
+            goal: 'Improve the type',
+            criteria: ['The better variable is persisted'],
+            requiredChecks: [{ recipe: 'typescript.check' }],
+          },
+        },
         { name: 'read_file', arguments: { path: 'index.ts' } },
         { name: 'write_file', arguments: { path: 'index.ts', content: 'const better = 2;' } },
       ];
       const message =
-        step < 2
+        step < calls.length
           ? { content: '', tool_calls: [{ function: calls[step++] }] }
           : { content: 'Finished.' };
       res.end(JSON.stringify({ message, done: true }) + '\n');
@@ -218,99 +226,114 @@ for (const decision of ['approve', 'deny', 'stop'] as const)
     assert.equal(reloaded.value.sessions.length, 1);
   });
 
-for (const custom of [false, true]) test(`agent pauses for a critical question and accepts ${custom ? 'free text' : 'an option'}`, async (t) => {
-  const root = await fixture();
-  t.after(() => fs.rm(root, { recursive: true, force: true }));
-  const project = path.join(root, 'project');
-  await fs.mkdir(project);
-  await fs.writeFile(path.join(project, 'index.ts'), 'export const mode = "safe";\n');
-  let step = 0;
-  const requests: Record<string, unknown>[] = [];
-  const { server, endpoint } = await mockServer(async (req, res) => {
-    let raw = '';
-    for await (const chunk of req) raw += chunk;
-    const body = raw ? JSON.parse(raw) : {};
-    if (req.url === '/api/tags')
-      return res.end(JSON.stringify({ models: [{ name: 'test:local', size: 1 }] }));
-    if (req.url === '/api/show') return res.end('{}');
-    requests.push(body);
-    const message =
-      step++ === 0
-        ? {
-            content: '',
-            tool_calls: [
-              {
-                function: {
-                  name: 'write_file',
-                  arguments: { path: 'index.ts', content: 'export const mode = "changed";\n' },
-                },
-              },
-              {
-                function: {
-                  name: 'ask_user_question',
-                  arguments: {
-                    question: 'Which compatibility target should this change use?',
-                    reason: 'The target changes the public API and generated output.',
-                    options: custom ? ['Modern only', 'Legacy compatible'] : [
-                      { label: 'Modern only', description: 'Use the current runtime API.' },
-                      { label: 'Legacy compatible', description: 'Preserve the older API.' },
-                    ],
+for (const custom of [false, true])
+  test(`agent pauses for a critical question and accepts ${custom ? 'free text' : 'an option'}`, async (t) => {
+    const root = await fixture();
+    t.after(() => fs.rm(root, { recursive: true, force: true }));
+    const project = path.join(root, 'project');
+    await fs.mkdir(project);
+    await fs.writeFile(path.join(project, 'index.ts'), 'export const mode = "safe";\n');
+    let step = 0;
+    const requests: Record<string, unknown>[] = [];
+    const { server, endpoint } = await mockServer(async (req, res) => {
+      let raw = '';
+      for await (const chunk of req) raw += chunk;
+      const body = raw ? JSON.parse(raw) : {};
+      if (req.url === '/api/tags')
+        return res.end(JSON.stringify({ models: [{ name: 'test:local', size: 1 }] }));
+      if (req.url === '/api/show') return res.end('{}');
+      requests.push(body);
+      const message =
+        step++ === 0
+          ? {
+              content: '',
+              tool_calls: [
+                {
+                  function: {
+                    name: 'write_file',
+                    arguments: { path: 'index.ts', content: 'export const mode = "changed";\n' },
                   },
                 },
-              },
-            ],
-          }
-        : { content: 'Kept the legacy-compatible design.' };
-    res.end(JSON.stringify({ message, done: true }) + '\n');
+                {
+                  function: {
+                    name: 'ask_user_question',
+                    arguments: {
+                      question: 'Which compatibility target should this change use?',
+                      reason: 'The target changes the public API and generated output.',
+                      options: custom
+                        ? ['Modern only', 'Legacy compatible']
+                        : [
+                            { label: 'Modern only', description: 'Use the current runtime API.' },
+                            { label: 'Legacy compatible', description: 'Preserve the older API.' },
+                          ],
+                    },
+                  },
+                },
+              ],
+            }
+          : { content: 'Kept the legacy-compatible design.' };
+      res.end(JSON.stringify({ message, done: true }) + '\n');
+    });
+    t.after(() => server.close());
+    const store = new Store(path.join(root, 'data'));
+    await store.load();
+    store.value.workspacePath = project;
+    store.value.settings = {
+      ...store.value.settings,
+      endpoint,
+      model: 'test:local',
+      mapFormat: 'compact',
+    };
+    let observedWaitingState = false;
+    const events: AgentEvent[] = [];
+    const agent = new Agent(store, (event) => {
+      events.push(event);
+      if (event.type === 'clarification') {
+        observedWaitingState =
+          store.value.activeRun?.status === 'waiting' &&
+          store.value.activeRun.clarification?.id === event.clarification.id;
+        const answer = event.clarification.options.find(
+          (option) => option.label === 'Legacy compatible',
+        );
+        assert.throws(() => agent.answerClarification(event.clarification.id, 'custom', '  '));
+        queueMicrotask(() =>
+          agent.answerClarification(
+            event.clarification.id,
+            custom ? 'custom' : answer!.id,
+            custom ? 'Support both APIs' : undefined,
+          ),
+        );
+      }
+    });
+    await agent.run('Update the compatibility layer.');
+    assert.equal(observedWaitingState, true);
+    assert.ok(events.some((event) => event.type === 'clarification'));
+    assert.equal(
+      await fs.readFile(path.join(project, 'index.ts'), 'utf8'),
+      'export const mode = "safe";\n',
+    );
+    const toolMessages = store.value.sessions[0].messages.filter(
+      (message) => message.role === 'tool',
+    );
+    assert.match(toolMessages.find((message) => message.name === 'write_file')!.content, /Skipped/);
+    assert.deepEqual(
+      JSON.parse(toolMessages.find((message) => message.name === 'ask_user_question')!.content),
+      custom
+        ? { answer: 'Support both APIs' }
+        : {
+            answer: 'Legacy compatible',
+            description: 'Preserve the older API.',
+          },
+    );
+    const nextMessages = (requests[1].messages as { role: string; content: string }[]).filter(
+      (message) => message.role === 'tool',
+    );
+    assert.ok(
+      nextMessages.some((message) =>
+        message.content.includes(custom ? 'Support both APIs' : 'Legacy compatible'),
+      ),
+    );
   });
-  t.after(() => server.close());
-  const store = new Store(path.join(root, 'data'));
-  await store.load();
-  store.value.workspacePath = project;
-  store.value.settings = {
-    ...store.value.settings,
-    endpoint,
-    model: 'test:local',
-    mapFormat: 'compact',
-  };
-  let observedWaitingState = false;
-  const events: AgentEvent[] = [];
-  const agent = new Agent(store, (event) => {
-    events.push(event);
-    if (event.type === 'clarification') {
-      observedWaitingState =
-        store.value.activeRun?.status === 'waiting' &&
-        store.value.activeRun.clarification?.id === event.clarification.id;
-      const answer = event.clarification.options.find(
-        (option) => option.label === 'Legacy compatible',
-      );
-      assert.throws(() => agent.answerClarification(event.clarification.id, 'custom', '  '));
-      queueMicrotask(() => agent.answerClarification(event.clarification.id, custom ? 'custom' : answer!.id, custom ? 'Support both APIs' : undefined));
-    }
-  });
-  await agent.run('Update the compatibility layer.');
-  assert.equal(observedWaitingState, true);
-  assert.ok(events.some((event) => event.type === 'clarification'));
-  assert.equal(
-    await fs.readFile(path.join(project, 'index.ts'), 'utf8'),
-    'export const mode = "safe";\n',
-  );
-  const toolMessages = store.value.sessions[0].messages.filter(
-    (message) => message.role === 'tool',
-  );
-  assert.match(toolMessages.find((message) => message.name === 'write_file')!.content, /Skipped/);
-  assert.deepEqual(
-    JSON.parse(toolMessages.find((message) => message.name === 'ask_user_question')!.content),
-    custom ? { answer: 'Support both APIs' } : {
-      answer: 'Legacy compatible',
-      description: 'Preserve the older API.',
-    },
-  );
-  const nextMessages = (requests[1].messages as { role: string; content: string }[]).filter(
-    (message) => message.role === 'tool',
-  );
-  assert.ok(nextMessages.some((message) => message.content.includes(custom ? 'Support both APIs' : 'Legacy compatible')));
-});
 
 test(
   'MLX launcher writes real datasets, uses offline flags and reports process exit',
@@ -374,18 +397,30 @@ test('implementation-only prose cannot silently complete a task without files', 
   await fs.mkdir(project);
   let calls = 0;
   const { server, endpoint } = await mockServer(async (req, res) => {
-    for await (const _ of req) { /* drain body */ }
+    for await (const _ of req) {
+      /* drain body */
+    }
     if (req.url === '/api/tags') return res.end('{"models":[{"name":"test:local","size":1}]}');
     if (req.url === '/api/show') return res.end('{}');
     calls++;
-    res.end(JSON.stringify({ message: { content: 'Here is your app. Everything is ready.' }, done: true }) + '\n');
+    res.end(
+      JSON.stringify({
+        message: { content: 'Here is your app. Everything is ready.' },
+        done: true,
+      }) + '\n',
+    );
   });
   t.after(() => server.close());
   const store = new Store(path.join(root, 'data'));
   await store.load();
   t.after(() => store.close());
   store.value.workspacePath = project;
-  store.value.settings = { ...store.value.settings, endpoint, model: 'test:local', mapFormat: 'compact' };
+  store.value.settings = {
+    ...store.value.settings,
+    endpoint,
+    model: 'test:local',
+    mapFormat: 'compact',
+  };
   await new Agent(store, () => {}).run('Create a calculator application.');
   assert.equal(calls, 3);
   assert.equal(store.value.sessions[0].task?.outcome, 'failed');

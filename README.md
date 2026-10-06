@@ -139,6 +139,26 @@ For an empty workspace Forge can run a reviewed pnpm-first scaffold for React/Vi
 
 For existing projects the agent can discover exact `package.json` scripts, start and stop managed processes, retain bounded logs and detect loopback preview URLs. Dependency additions and removals use pnpm with lifecycle scripts disabled. The interactive browser accepts local HTTP URLs only and can inspect controls, click, fill fields, press allowlisted keys, read console/load failures and save screenshots for review.
 
+`scaffold_product` also writes bundled, reviewable **SaaS, storefront, dashboard, API and pnpm monorepo starters** without running an external generator. They include real source files, domain/authorization tests, API contract tests where applicable and browser scenarios for web products. Installation is a separate reviewed action. These are development foundations: demo identity, in-memory data and unconfigured payment boundaries are clearly marked, not production integrations.
+
+### Focused tools and resumable tasks
+
+The model receives core TypeScript tools plus one relevant optional capability group. `enable_tool_group` switches between development, browser, data, Git, knowledge, maintenance, SSH and MCP; small native/R3F inspection groups can stay loaded. Disabled web search is never advertised. Tool schemas count toward the context budget. Required engineering rules are concise during inference; `skill_instructions` retrieves a full runbook when needed.
+
+The harness enforces `plan_task` before file, scaffold or dependency changes. Checkpoints retain the original goal, criteria, validation receipts, applied changes, current phase, pass count and loaded groups after each tool. **Resume task** continues after a stop, restart or step limit without resetting the task contract. It re-analyzes current sources, requires fresh file reads and does not replay unfinished tool calls automatically. Historical summaries survive message compaction; uncertain side effects must be inspected before retrying.
+
+### Browser evidence and maintenance
+
+Browser snapshots include selectors for real controls. Tools support bounded waits, text/value/count/visibility assertions, select controls, scrolling and desktop/tablet/phone sizes. Console errors, failed requests and HTTP errors are returned as evidence. Screenshots can be expanded in chat; **Show live browser** opens the same browser session the agent uses. The Build loop has a button to open a managed process URL in that browser. Its embedded iframe remains a separate preview session.
+
+`check_local_http` supports local JSON requests and expected status/body assertions. Mutating requests require review. Maintenance tools provide static review candidates, approved registry advisory/upgrade queries, semantic TypeScript rename proposals and release-readiness receipts. The new debugging, compatible-refactoring, dependency-maintenance, security-review and release-recovery skills connect these tools to concrete verification steps. Static findings are hypotheses, not a security or performance certification.
+
+### Disposable data workflows
+
+SQLite targets are fresh owned databases under ignored `.forge/databases`. `database_migrate` executes explicit SQL files: SQLite dry-runs use a disposable copy; PostgreSQL dry-runs use a transaction and rollback on an owned Docker container. PostgreSQL readiness is checked before use. Constraint/data-loss hints supplement execution; representative data remains necessary.
+
+`run_seed_workflow` runs an existing seed script against a copied SQLite target in a network-denied project snapshot, without original `.env` files. Only a successful run updates the disposable database. Production URLs are never inferred or used. Package-script seeds currently support SQLite; PostgreSQL fixtures can be supplied as reviewed SQL. Executable/connection-changing SQL is rejected. Isolated runners require macOS and fail closed elsewhere.
+
 Git status, diff and recent history are read-only. Branch creation, explicit file staging, commit and push each require approval. Forge does not expose force push, broad `git add .`, destructive reset or arbitrary shell commands.
 
 ## Roadmap
@@ -159,7 +179,9 @@ The agent defines the actual problem and observable acceptance criteria, asks on
 
 The guidance covers capability discovery, tool schemas, resources and prompt templates, protocol-version differences, result validation, pagination, cancellation, safe retries, server trust, scoped permissions and secret handling. It distinguishes tool errors from transport failures and warns that a timed-out write may already have taken effect. Server content and annotations remain untrusted; permissions must be enforced by the host, not by prompt instructions alone.
 
-**Forge currently has no MCP client or connected MCP servers.** These skills do not install servers, launch processes, make remote connections or add credentials. The model must state that limitation instead of inventing calls. A future MCP integration needs an actual client, isolated execution, permission controls and protocol tests; these skills are not a substitute.
+**Settings → MCP servers** configures a real opt-in client using stdio or Streamable HTTP. Save a profile, enable it and use **Connect / test** to inspect negotiated tool schemas. Tools are blocked until their exact names are allowlisted. Agent connections and calls require review; credentials use environment variable names and stay outside model context. Calls validate arguments against discovered schemas and use bounded timeouts. Audit records contain server/tool identities and outcomes without credential payloads.
+
+Stdio servers execute outside the validation sandbox and may access files or network; remote HTTP servers receive supplied data. This is an explicit privacy boundary, not a guarantee that every MCP integration is private. Remote endpoints require HTTPS; plain HTTP is limited to loopback. OAuth flows, MCP resources/prompts, registry installation and publishing remain future work. The implementation uses the official [MCP TypeScript SDK client](https://ts.sdk.modelcontextprotocol.io/client).
 
 References: the official [MCP specification](https://modelcontextprotocol.io/specification/2026-07-28) and [tools documentation](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2025-06-18/server/tools.mdx). The guidance tells the model to use the negotiated version and installed SDK instead of assuming every server supports the latest protocol.
 
@@ -238,6 +260,7 @@ npm test                # Harness, persistence, security, map, tools, and state 
 npm run build           # Production renderer and Electron bundles
 npm run test:desktop    # Real Electron UI and IPC smoke test
 npm run test:e2e        # Real Electron + local Ollama; checks availability first
+npm run test:products   # Temporary starters: install, test, typecheck, build, web E2E
 npm run test:ui         # UI stress fixture
 npm run package         # Unsigned macOS app bundle
 ```
@@ -249,7 +272,7 @@ npm run eval:local
 npm run eval:understanding
 ```
 
-Desktop tests create temporary workspaces and local fixture servers. The smoke test exercises voice input, settings, multiple workspaces, automatic analysis, clarification recovery after renderer reload, reviewed changes, TypeScript checks, undo, skills, and training data.
+Desktop tests create temporary workspaces and local fixture servers. The smoke test exercises voice input, settings, multiple workspaces, automatic analysis, clarification recovery, reviewed changes, TypeScript checks, undo, browser interactions/assertions, screenshot artifacts, skills and training data. `test:products` downloads fixture dependencies; install Chromium first with `npx playwright install chromium`. Receipts are written under ignored `.forge-test-results`.
 
 ### Live local-model E2E
 
@@ -262,7 +285,7 @@ FORGE_E2E_MODEL=llama3.1:8b npm run test:e2e
 FORGE_E2E_REQUIRED=1 FORGE_E2E_TIMEOUT_MS=300000 npm run test:e2e
 ```
 
-`FORGE_E2E_ENDPOINT` can select another HTTP loopback endpoint. The per-scenario timeout defaults to 240 seconds. `FORGE_E2E_CONTEXT_TOKENS` defaults to 32768 to accommodate Forge’s own source map and architecture evidence; choose a value supported by your model and memory. Execution currently requires macOS.
+`FORGE_E2E_ENDPOINT` can select another HTTP loopback endpoint. `FORGE_E2E_CASES=r3f-scene-tool,edit-validate-undo` selects specific scenarios for a targeted rerun; the real connection test always runs. The per-scenario timeout defaults to 240 seconds. `FORGE_E2E_CONTEXT_TOKENS` defaults to 32768 to accommodate Forge’s own source map and architecture evidence; choose a value supported by your model and memory. Execution currently requires macOS.
 
 Four scenarios use real inference through Electron and the production harness:
 

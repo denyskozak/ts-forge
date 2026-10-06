@@ -58,6 +58,12 @@ export async function recoverInterrupted(store: Store) {
     delete run.stream;
     dirty = true;
     const session = store.value.sessions.find((s) => s.id === run.sessionId);
+    if (session?.checkpoint) {
+      session.checkpoint.resumable = true;
+      session.checkpoint.reason =
+        'Interrupted by app restart; inspect side effects before retrying';
+      session.checkpoint.updatedAt = Date.now();
+    }
     session?.messages.push({
       id: randomUUID(),
       role: 'assistant',

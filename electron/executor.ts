@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-export async function resolveExecutable(name: 'pnpm' | 'docker') {
+export async function resolveExecutable(name: 'pnpm' | 'docker' | 'node') {
   const directories = [
     ...(process.env.PATH ?? '').split(path.delimiter),
     '/opt/homebrew/bin',

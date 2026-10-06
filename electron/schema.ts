@@ -5,6 +5,9 @@ import { taskSchema, changeSetSchema } from '../shared/task';
 import { DEFAULT_SETTINGS } from '../shared/types';
 import { localEndpoint } from './provider';
 import { sshProfileSchema } from './ssh';
+import { mcpProfileSchema } from '../shared/mcp';
+import { checkpointSchema } from '../shared/checkpoint';
+import { MAINTENANCE_SKILLS } from '../shared/maintenance-skills';
 export const settingsSchema = z.object({
   endpoint: z.string().transform(localEndpoint),
   model: z.string().max(200),
@@ -22,6 +25,7 @@ export const settingsSchema = z.object({
         'mcp-workflow',
         'mcp-security',
         'ssh',
+        ...MAINTENANCE_SKILLS.map((skill) => skill.id),
         ...REQUIRED_ENGINEERING_SKILLS,
       ]),
     )
@@ -58,6 +62,7 @@ export const settingsSchema = z.object({
     })
     .default(DEFAULT_SETTINGS.webSearch),
   sshProfiles: z.array(sshProfileSchema).max(20).default([]),
+  mcpServers: z.array(mcpProfileSchema).max(20).default([]),
 });
 const call = z.object({
   function: z.object({ name: z.string(), arguments: z.record(z.string(), z.unknown()) }),
@@ -101,6 +106,7 @@ const session = z.object({
   changes: z.array(changeSchema).optional(),
   changeSets: z.array(changeSetSchema).optional(),
   task: taskSchema.optional(),
+  checkpoint: checkpointSchema.optional(),
 });
 const example = z.object({
   id: z.string(),
@@ -132,6 +138,7 @@ const approval = z.object({
     'process',
     'scaffold',
     'browser',
+    'mcp',
   ]),
   title: z.string(),
   change: changeSchema.optional(),
@@ -161,6 +168,10 @@ const run = z.object({
   approval: approval.optional(),
   clarification: clarification.optional(),
   stream: z.string().optional(),
+  phase: checkpointSchema.shape.phase.optional(),
+  step: z.number().optional(),
+  toolGroups: z.array(z.string()).optional(),
+  toolCount: z.number().optional(),
 });
 const job = z.object({
   id: z.string(),

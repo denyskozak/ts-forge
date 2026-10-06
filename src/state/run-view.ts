@@ -1,4 +1,5 @@
 import type { TaskRecord, ChangeSet } from '../../shared/task';
+import type { TaskCheckpoint } from '../../shared/checkpoint';
 import type {
   AgentEvent,
   AppState,
@@ -19,6 +20,8 @@ export interface RunView {
   stream: string;
   approval?: Approval;
   clarification?: Clarification;
+  checkpoint?: TaskCheckpoint;
+  toolCount?: number;
 }
 export const initialRunView: RunView = {
   messages: [],
@@ -40,7 +43,7 @@ export function runViewReducer(state: RunView, action: RunAction): RunView {
   switch (action.type) {
     case 'hydrate': {
       const run = action.data.activeRun;
-      if (!run || !['running', 'waiting'].includes(run.status)) return state;
+      if (!run || run.workspace !== action.data.workspace?.path) return state;
       const session = action.data.sessions.find((item) => item.id === run.sessionId);
       return {
         messages: session?.messages ?? [],
@@ -48,11 +51,13 @@ export function runViewReducer(state: RunView, action: RunAction): RunView {
         task: session?.task,
         changeSets: session?.changeSets,
         sessionId: run.sessionId,
-        busy: true,
+        busy: ['running', 'waiting'].includes(run.status),
         status: run.label,
         stream: run.stream ?? '',
         approval: run.approval,
         clarification: run.clarification,
+        checkpoint: session?.checkpoint,
+        toolCount: run.toolCount,
       };
     }
     case 'select':
@@ -65,6 +70,7 @@ export function runViewReducer(state: RunView, action: RunAction): RunView {
             changes: action.session?.changes ?? [],
             ...(action.session?.task ? { task: action.session.task } : {}),
             ...(action.session?.changeSets ? { changeSets: action.session.changeSets } : {}),
+            ...(action.session?.checkpoint ? { checkpoint: action.session.checkpoint } : {}),
           };
     case 'start':
       return {
@@ -99,6 +105,14 @@ export function runViewReducer(state: RunView, action: RunAction): RunView {
     case 'task':
       if (!state.busy && state.task?.runId !== action.task.runId) return state;
       return { ...state, task: action.task };
+    case 'checkpoint':
+      if (!state.busy && state.sessionId !== action.sessionId) return state;
+      return {
+        ...state,
+        sessionId: action.sessionId,
+        checkpoint: action.checkpoint,
+        toolCount: action.toolCount,
+      };
     case 'changeset':
       if (!state.busy && state.sessionId !== action.changeSet.sessionId) return state;
       return {
@@ -125,6 +139,7 @@ export function runViewReducer(state: RunView, action: RunAction): RunView {
         changes: action.session.changes ?? [],
         task: action.session.task,
         changeSets: action.session.changeSets,
+        checkpoint: action.session.checkpoint,
       };
     default:
       return state;
