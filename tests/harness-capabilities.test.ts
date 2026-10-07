@@ -61,7 +61,27 @@ test('R3F snake recipe writes complete gameplay, UI and tests without model-auth
     edits.find((edit) => edit.path === 'tests\/game.test.ts')!.content,
     /self collisions/,
   );
+  assert.match(edits.find((edit) => edit.path === 'src/game.ts')!.content, /const wrap/);
   assert.match(edits.find((edit) => edit.path === 'package.json')!.content, /node --test/);
+});
+
+test('R3F snake recipe bootstraps an empty workspace without requiring package.json', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'forge-r3f-empty-'));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const edits = await r3fSnakeRecipe(root);
+  const paths = new Set(edits.map((edit) => edit.path));
+  for (const required of [
+    'package.json',
+    'index.html',
+    'vite.config.ts',
+    'tsconfig.json',
+    'src/main.tsx',
+    'src/App.tsx',
+    'src/game.ts',
+    'tests/game.test.ts',
+  ])
+    assert.ok(paths.has(required), `missing ${required}`);
+  assert.match(edits.find((edit) => edit.path === 'package.json')!.content, /@react-three\/fiber/);
 });
 test('context budgeting reserves capacity for advertised schemas', () => {
   const messages = [

@@ -71,16 +71,18 @@ export function stepGame(state: GameState, random = Math.random): GameState {
   if (state.status !== 'playing') return state;
   const direction = state.pendingDirection;
   const vector = vectors[direction];
-  const head = {
+  const nextHead = {
     x: state.snake[0].x + vector.x,
     y: state.snake[0].y + vector.y,
   };
   const edge = Math.floor(BOARD_SIZE / 2);
+  const wrap = (coordinate: number) =>
+    coordinate < -edge ? edge - 1 : coordinate >= edge ? -edge : coordinate;
+  const head = { x: wrap(nextHead.x), y: wrap(nextHead.y) };
   const ate = samePoint(head, state.food);
   const occupied = ate ? state.snake : state.snake.slice(0, -1);
-  const hitWall = head.x < -edge || head.x >= edge || head.y < -edge || head.y >= edge;
   const hitSelf = occupied.some((segment) => samePoint(segment, head));
-  if (hitWall || hitSelf) return { ...state, direction, status: 'game-over' };
+  if (hitSelf) return { ...state, direction, status: 'game-over' };
 
   const snake = ate
     ? [head, ...state.snake]
@@ -259,9 +261,16 @@ test('rejects an immediate reverse turn', () => {
   assert.equal(changeDirection(state, 'up').pendingDirection, 'up');
 });
 
-test('detects wall and self collisions', () => {
-  const wall = stepGame({ ...createInitialGame(), snake: [{ x: 8, y: 0 }], food: { x: 0, y: 0 } });
-  assert.equal(wall.status, 'game-over');
+test('wraps through every board edge', () => {
+  const base = createInitialGame();
+  assert.deepEqual(stepGame({ ...base, snake: [{ x: 8, y: 0 }], food: { x: 2, y: 2 } }).snake[0], { x: -9, y: 0 });
+  assert.deepEqual(stepGame({ ...base, snake: [{ x: -9, y: 0 }], direction: 'left', pendingDirection: 'left', food: { x: 2, y: 2 } }).snake[0], { x: 8, y: 0 });
+  assert.deepEqual(stepGame({ ...base, snake: [{ x: 0, y: 8 }], direction: 'up', pendingDirection: 'up', food: { x: 2, y: 2 } }).snake[0], { x: 0, y: -9 });
+  assert.deepEqual(stepGame({ ...base, snake: [{ x: 0, y: -9 }], direction: 'down', pendingDirection: 'down', food: { x: 2, y: 2 } }).snake[0], { x: 0, y: 8 });
+});
+
+test('detects self collisions', () => {
+  const base = createInitialGame();
   const self: GameState = {
     snake: [{ x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }, { x: 0, y: 0 }],
     food: { x: 5, y: 5 }, direction: 'up', pendingDirection: 'up', score: 3, status: 'playing',
@@ -276,15 +285,72 @@ test('food never spawns on the snake', () => {
 `;
 
 export async function r3fSnakeRecipe(root: string): Promise<RecipeEdit[]> {
-  const packageJson = JSON.parse(await readText(root, 'package.json')) as {
+  let packageJson: {
     scripts?: Record<string, string>;
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
     [key: string]: unknown;
   };
+  let existingProject = true;
+  try {
+    packageJson = JSON.parse(await readText(root, 'package.json'));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    existingProject = false;
+    packageJson = {
+      name: 'neon-snake',
+      private: true,
+      version: '0.0.0',
+      type: 'module',
+      packageManager: 'pnpm@10.17.1',
+      dependencies: {
+        '@react-three/fiber': '^9.3.0',
+        react: '^19.1.1',
+        'react-dom': '^19.1.1',
+        three: '^0.180.0',
+      },
+      devDependencies: {
+        '@types/react': '^19.1.16',
+        '@types/react-dom': '^19.1.9',
+        '@types/three': '^0.180.0',
+        '@vitejs/plugin-react': '^5.0.4',
+        typescript: '~5.9.3',
+        vite: '^7.1.9',
+      },
+    };
+  }
   packageJson.scripts = {
     ...packageJson.scripts,
+    dev: packageJson.scripts?.dev ?? 'vite',
+    build: packageJson.scripts?.build ?? 'tsc -b && vite build',
     test: 'node --test --experimental-strip-types tests/game.test.ts',
   };
+  const bootstrap: RecipeEdit[] = existingProject
+    ? []
+    : [
+        {
+          path: 'index.html',
+          content:
+            '<!doctype html>\n<html lang="en">\n  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Neon Snake</title></head>\n  <body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body>\n</html>\n',
+        },
+        {
+          path: 'src/main.tsx',
+          content:
+            "import { StrictMode } from 'react';\nimport { createRoot } from 'react-dom/client';\nimport App from './App';\nimport './index.css';\n\ncreateRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);\n",
+        },
+        {
+          path: 'tsconfig.json',
+          content:
+            '{\n  "compilerOptions": {\n    "target": "ES2022",\n    "useDefineForClassFields": true,\n    "lib": ["ES2022", "DOM", "DOM.Iterable"],\n    "allowJs": false,\n    "skipLibCheck": true,\n    "esModuleInterop": true,\n    "allowSyntheticDefaultImports": true,\n    "strict": true,\n    "forceConsistentCasingInFileNames": true,\n    "module": "ESNext",\n    "moduleResolution": "Bundler",\n    "resolveJsonModule": true,\n    "isolatedModules": true,\n    "noEmit": true,\n    "jsx": "react-jsx"\n  },\n  "include": ["src"]\n}\n',
+        },
+        {
+          path: 'vite.config.ts',
+          content:
+            "import { defineConfig } from 'vite';\nimport react from '@vitejs/plugin-react';\n\nexport default defineConfig({ plugins: [react()] });\n",
+        },
+      ];
   return [
+    ...bootstrap,
     { path: 'src/game.ts', content: gameSource },
     { path: 'src/App.tsx', content: appSource },
     { path: 'src/App.css', content: appCss },

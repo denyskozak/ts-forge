@@ -12,7 +12,7 @@ import {
   TOOL_SELECTION_INSTRUCTIONS,
   type ToolGroup,
 } from '../shared/tool-policy';
-import { phaseForTool, type TaskCheckpoint } from '../shared/checkpoint';
+import { phaseForTool, taskPipelineForPrompt, type TaskCheckpoint } from '../shared/checkpoint';
 import { checkpointSummary } from './task-checkpoint';
 import { maintenanceSkillsForPrompt } from '../shared/maintenance-skills';
 import { scaffoldProduct } from './product-templates';
@@ -728,6 +728,7 @@ export class Agent {
     // Execution messages and audit events retain the fresh run.id.
     task.outcome = 'in_progress';
     current.task = task;
+    const selectedPipeline = taskPipelineForPrompt(prompt);
     const checkpoint: TaskCheckpoint =
       resuming && current.checkpoint
         ? current.checkpoint
@@ -735,6 +736,8 @@ export class Agent {
             prompt,
             step: 0,
             phase: 'analysis',
+            kind: selectedPipeline.kind,
+            pipeline: selectedPipeline.phases,
             groups: ['core'],
             planned: false,
             resumable: true,
@@ -881,6 +884,7 @@ export class Agent {
       ];
       messages[0].content +=
         '\n<saved_task_evidence>\n' + checkpointSummary(current) + '\n</saved_task_evidence>';
+      messages[0].content += `\n<task_pipeline kind="${checkpoint.kind}">\n${selectedPipeline.instructions}\nRequired stages: ${checkpoint.pipeline.join(' -> ')}. Complete every applicable stage autonomously; a stage may be skipped only when it cannot apply, and the final response must state why.\n</task_pipeline>`;
       messages.splice(1, 0, {
         role: 'system',
         content:
@@ -894,7 +898,7 @@ export class Agent {
           prompt,
         );
       const previewVerificationRequested =
-        explicitlyReadOnly &&
+        (explicitlyReadOnly || implementationRequested) &&
         /(?:pnpm\s+dev|dev(?:elopment)?\s+server|loopback|встроенн\w*\s+браузер|открой\w*\s+.*браузер|запусти\w*\s+.*проект)/iu.test(
           prompt,
         );
@@ -925,7 +929,12 @@ export class Agent {
           }
         });
       const previewNextTools = () => {
-        if (!previewVerificationRequested) return undefined;
+        if (
+          !previewVerificationRequested ||
+          !implementationSatisfied() ||
+          pendingRequiredChecks().length
+        )
+          return undefined;
         if (!successfulReceipt('package_scripts')) return new Set(['package_scripts']);
         if (!successfulReceipt('start_package_process')) return new Set(['start_package_process']);
         if (!groups.has('browser')) return new Set(['enable_tool_group']);
@@ -942,6 +951,14 @@ export class Agent {
       let toolArgumentRepairs = 0;
       let understandingRepairs = 0;
       const emptyWorkspaceAtStart = map.files === 0;
+      // A new-project request already provides a complete, reviewable contract in the
+      // user's prompt. Record it before exposing mutation tools so a small local model
+      // cannot deadlock by attempting scaffolding before an explicit plan_task call.
+      if (implementationRequested && emptyWorkspaceAtStart && !checkpoint.planned) {
+        checkpoint.planned = true;
+        await saveCheckpoint();
+        await publishTask();
+      }
       const hasScaffoldReceipt = current.messages.some(
         (message) =>
           message.role === 'tool' &&
@@ -998,9 +1015,12 @@ export class Agent {
           const receipt = latestValidationFor(check);
           return receipt?.status === 'failed' && receipt.fingerprint === task.fingerprint;
         });
-      let nextPassTools: Set<string> | undefined = needsFocusedImplementation()
-        ? implementationTools
-        : undefined;
+      let nextPassTools: Set<string> | undefined =
+        requestedR3fSnake && checkpoint.planned && task.appliedChanges === 0
+          ? new Set(['create_r3f_game'])
+          : needsFocusedImplementation()
+            ? implementationTools
+            : undefined;
       let nextPassRequiresTool = Boolean(nextPassTools);
       const mentionedSourcePaths = explicitSourcePaths(prompt);
       let finishWithCurrentWork = false;
@@ -1062,6 +1082,10 @@ export class Agent {
           ? previewTools
           : needsFocusedImplementation()
             ? implementationTools
+            : implementationSatisfied() &&
+                Boolean(requestedScaffold) &&
+                !successfulReceipt('install_pnpm_dependencies')
+              ? new Set(['install_pnpm_dependencies'])
             : implementationSatisfied() && pendingRequiredChecks().length
               ? hasCurrentValidationFailure()
                 ? new Set([
@@ -1303,6 +1327,7 @@ export class Agent {
         const requiresScaffoldFirst =
           implementationRequested &&
           requestedScaffold &&
+          !requestedR3fSnake &&
           checkpoint.planned &&
           task.appliedChanges === 0 &&
           availableNames.has('scaffold_project') &&
@@ -1612,6 +1637,7 @@ export class Agent {
                 'replace_text',
                 'scaffold_project',
                 'scaffold_product',
+                'create_r3f_game',
                 'package_dependencies',
               ].includes(name)
             )
@@ -2496,6 +2522,7 @@ export class Agent {
         }
       }
       signal.throwIfAborted();
+      checkpoint.phase = 'delivery';
       if (implementationRequested && !implementationSatisfied()) task.outcome = 'failed';
       task.outcome = finishWithCurrentWork
         ? 'stopped'

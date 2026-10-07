@@ -444,7 +444,7 @@ test('implementation-only prose cannot silently complete a task without files', 
   assert.deepEqual(await fs.readdir(project), []);
 });
 
-test('Russian build slang routes an empty R3F feature through real scaffolding', async (t) => {
+test('Russian build slang routes an empty R3F feature through the complete game recipe', async (t) => {
   const prompt =
     'давай забилдим игру на r3f в 2д змейку на клавиатуре, сделай поиск по правилам игры и имплементируй их';
   assert.equal(requestsProjectChange(prompt), true);
@@ -472,27 +472,10 @@ test('Russian build slang routes an empty R3F feature through real scaffolding',
         ? {
             content: '',
             tool_calls: [
-              {
-                function: {
-                  name: 'plan_task',
-                  arguments: {
-                    goal: prompt,
-                    criteria: ['A playable keyboard-controlled snake game exists'],
-                    requiredChecks: [{ recipe: 'typescript.check' }],
-                  },
-                },
-              },
+              { function: { name: 'create_r3f_game', arguments: { recipe: 'snake' } } },
             ],
           }
-        : calls === 2
-          ? {
-              content: '',
-              tool_calls: [{ function: { name: 'install_pnpm_dependencies', arguments: {} } }],
-            }
-          : {
-              content:
-                'Начнем с scaffold_project, затем добавим игру. Окончательный ответ: {"appliedChanges":0,"outcome":"success"}',
-            };
+        : { content: 'The requested project changes were declined.' };
     res.end(`${JSON.stringify({ message, done: true })}\n`);
   });
   t.after(() => server.close());
@@ -513,10 +496,10 @@ test('Russian build slang routes an empty R3F feature through real scaffolding',
     queueMicrotask(() => agent.approve(event.approval.id, false));
   });
   await agent.run(prompt);
-  assert.equal(calls, 3);
+  assert.equal(calls, 2);
   assert.equal(approvals.length, 1);
-  assert.equal(approvals[0].kind, 'scaffold');
-  assert.match(approvals[0].title, /r3f project named snake-project/i);
+  assert.equal(approvals[0].kind, 'changeset');
+  assert.match(approvals[0].title, /complete R3F snake game/i);
   assert.equal(store.value.sessions[0].task?.outcome, 'failed');
   assert.equal(store.value.sessions[0].checkpoint?.resumable, true);
   assert.match(store.value.sessions[0].messages.at(-1)!.content, /no changes were applied/i);

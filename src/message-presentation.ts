@@ -1,5 +1,11 @@
 const internalReceipt = (paragraph: string) => {
   const trimmed = paragraph.trim().replace(/^```(?:json)?\s*|\s*```$/gi, '');
+  if (
+    trimmed.startsWith('{') &&
+    /"(?:name|tool)"\s*:\s*"[a-z0-9_]+"/i.test(trimmed) &&
+    /"(?:parameters|arguments)"\s*:/i.test(trimmed)
+  )
+    return true;
   if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return false;
   try {
     const value = JSON.parse(trimmed) as Record<string, unknown>;
@@ -18,23 +24,20 @@ const internalReceipt = (paragraph: string) => {
 };
 
 export function presentAssistantText(content: string) {
-  let removedImplementation = false;
+  let removedCode = false;
   const withoutCode = content.replace(/```[\s\S]*?```/g, () => {
-    removedImplementation = true;
+    removedCode = true;
     return '';
   });
   const visible = withoutCode
     .split(/\n\s*\n/)
     .filter((paragraph) => {
       if (!internalReceipt(paragraph)) return true;
-      removedImplementation = true;
       return false;
     })
     .join('\n\n')
     .replace(/(?:Окончательный ответ|Final answer)\s*:\s*$/gim, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-  return (
-    visible || (removedImplementation ? 'Implementation written directly to the project.' : '')
-  );
+  return visible || (removedCode ? 'Implementation written directly to the project.' : '');
 }

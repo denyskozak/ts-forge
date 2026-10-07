@@ -90,7 +90,16 @@ test('assistant presentation hides source blocks and internal task receipts', ()
   );
   assert.equal(
     presentAssistantText(JSON.stringify({ name: 'apply_changeset', parameters: { changes: [] } })),
-    'Implementation written directly to the project.',
+    '',
+  );
+});
+
+test('assistant presentation hides a truncated printed tool envelope', () => {
+  assert.equal(
+    presentAssistantText(
+      '{"name":"plan_task","parameters":{"goal":"Wrap snake at edges","criteria":[]}',
+    ),
+    '',
   );
 });
 

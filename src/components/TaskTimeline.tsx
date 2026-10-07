@@ -1,5 +1,4 @@
-import type { TaskCheckpoint } from '../../shared/checkpoint';
-const phases = ['analysis', 'changes', 'checks', 'preview', 'delivery'] as const;
+import { DEFAULT_TASK_PIPELINE, type TaskCheckpoint } from '../../shared/checkpoint';
 export function TaskTimeline({
   checkpoint,
   toolCount,
@@ -12,10 +11,11 @@ export function TaskTimeline({
   onResume: () => void;
 }) {
   if (!checkpoint) return null;
+  const pipeline = checkpoint.pipeline ?? DEFAULT_TASK_PIPELINE;
   return (
     <section className="task-timeline" aria-label="Task progress">
       <ol>
-        {phases.map((phase) => (
+        {pipeline.map((phase) => (
           <li key={phase} aria-current={checkpoint.phase === phase ? 'step' : undefined}>
             {phase}
           </li>
@@ -23,7 +23,7 @@ export function TaskTimeline({
       </ol>
       <div>
         <span>
-          Pass {checkpoint.step}
+          {checkpoint.kind ?? 'change'} · Pass {checkpoint.step}
           {toolCount !== undefined ? ` · ${toolCount} tools loaded` : ''}
         </span>
         <details>
