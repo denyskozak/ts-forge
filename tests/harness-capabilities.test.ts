@@ -8,9 +8,9 @@ import { once } from 'node:events';
 import { allowedToolNames, selectToolGroups } from '../shared/tool-policy';
 import { Store } from '../electron/store';
 import { Agent, toolDefinitions } from '../electron/agent';
-import { recoverInterrupted } from '../electron/changes';
 import { budgetMessages } from '../electron/context';
 import { createAnalysisEngine } from '../electron/analysis-engine';
+import { r3fSnakeRecipe } from '../electron/r3f-recipes';
 
 test('capability selection reduces schemas and keeps specialist tools discoverable', () => {
   const groups = selectToolGroups('Fix a TypeScript function', [], false);
@@ -31,8 +31,37 @@ test('capability selection reduces schemas and keeps specialist tools discoverab
   );
   assert.ok(selectToolGroups('Собери магазин и проверь в браузере').includes('browser'));
   assert.ok(selectToolGroups('Build an R3F scene').includes('scene'));
+  assert.ok(allowedToolNames(['core', 'scene']).has('create_r3f_game'));
   assert.ok(selectToolGroups('Inspect current mobile project', ['Expo']).includes('native'));
   assert.ok(allowedToolNames(['core', 'knowledge'], true).has('web_search'));
+});
+
+test('R3F snake recipe writes complete gameplay, UI and tests without model-authored source', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'forge-r3f-recipe-'));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  await fs.writeFile(
+    path.join(root, 'package.json'),
+    JSON.stringify({ name: 'snake', type: 'module', scripts: { dev: 'vite' } }),
+  );
+  const edits = await r3fSnakeRecipe(root);
+  assert.deepEqual(
+    edits.map((edit) => edit.path),
+    [
+      'src/game.ts',
+      'src/App.tsx',
+      'src/App.css',
+      'src/index.css',
+      'tests/game.test.ts',
+      'package.json',
+    ],
+  );
+  assert.match(edits.find((edit) => edit.path === 'src/App.tsx')!.content, /<Canvas/);
+  assert.match(edits.find((edit) => edit.path === 'src/game.ts')!.content, /stepGame/);
+  assert.match(
+    edits.find((edit) => edit.path === 'tests\/game.test.ts')!.content,
+    /self collisions/,
+  );
+  assert.match(edits.find((edit) => edit.path === 'package.json')!.content, /node --test/);
 });
 test('context budgeting reserves capacity for advertised schemas', () => {
   const messages = [
@@ -42,7 +71,7 @@ test('context budgeting reserves capacity for advertised schemas', () => {
   assert.equal(budgetMessages(messages, 4096).length, 2);
   assert.throws(() => budgetMessages(messages, 4096, 2500), /Context budget/);
 });
-test('interrupted task resumes persisted edits and validation contract without replaying writes', async (t) => {
+test('task continues past the configured pass batch until edits and validation finish', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'forge-resume-'));
   const root = path.join(directory, 'project');
   await fs.mkdir(root);
@@ -113,32 +142,98 @@ test('interrupted task resumes persisted edits and validation contract without r
   await agent.run('Change the greeting to after');
   const session = store.value.sessions[0];
   assert.match(await fs.readFile(path.join(root, 'index.ts'), 'utf8'), /after/);
-  assert.equal(session.checkpoint?.resumable, true);
-  assert.equal(session.checkpoint?.step, 3);
   assert.equal(session.task?.appliedChanges, 1);
-  await store.close();
-  store = new Store(path.join(directory, 'state'));
-  await store.load();
-  await recoverInterrupted(store);
-  agent = new Agent(store, (event) => {
-    if (event.type === 'approval') queueMicrotask(() => agent.approve(event.approval.id, true));
-  });
-  await agent.resume(session.id);
-  const resumed = store.value.sessions[0];
-  assert.equal(resumed.task?.runId, session.task?.runId);
-  assert.equal(resumed.task?.appliedChanges, 1);
-  assert.equal(resumed.task?.requiredChecks.length, 1);
-  assert.equal(resumed.task?.validations[0].status, 'passed');
-  assert.equal(resumed.checkpoint?.step, 5);
-  assert.equal(resumed.checkpoint?.resumable, false);
-  assert.equal(resumed.messages.filter((message) => message.name === 'replace_text').length, 1);
+  assert.equal(session.task?.requiredChecks.length, 1);
+  assert.equal(session.task?.validations[0].status, 'passed');
+  assert.equal(session.checkpoint?.step, 4);
+  assert.equal(session.checkpoint?.resumable, false);
+  assert.equal(session.messages.filter((message) => message.name === 'replace_text').length, 1);
   assert.ok(
     received.every(
-      (request) => !request.tools.some((tool) => tool.function.name === 'ssh_upload_files'),
+      (request) => !(request.tools ?? []).some((tool) => tool.function.name === 'ssh_upload_files'),
     ),
   );
   assert.match(received[3].messages[0].content, /saved_task_evidence/);
 });
+
+test('failed validation is not repeated forever and escalates with three choices', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'forge-validation-repair-'));
+  const root = path.join(directory, 'project');
+  await fs.mkdir(root);
+  await fs.writeFile(path.join(root, 'index.ts'), 'export const value: string = "before";\n');
+  await fs.writeFile(
+    path.join(root, 'tsconfig.json'),
+    JSON.stringify({ compilerOptions: { noEmit: true, strict: true }, files: ['index.ts'] }),
+  );
+  let request = 0;
+  const calls = [
+    {
+      name: 'plan_task',
+      arguments: {
+        goal: 'Change the value',
+        criteria: ['Value is changed'],
+        requiredChecks: [{ recipe: 'typescript.check' }],
+      },
+    },
+    { name: 'read_file', arguments: { path: 'index.ts' } },
+    {
+      name: 'replace_text',
+      arguments: { path: 'index.ts', oldText: '"before"', newText: '1' },
+    },
+  ];
+  const server = createServer(async (incoming, response) => {
+    if (incoming.url === '/api/tags') return response.end('{"models":[{"name":"local","size":1}]}');
+    if (incoming.url === '/api/show') return response.end('{}');
+    for await (const _chunk of incoming) void _chunk;
+    const call = calls[request++];
+    response.end(
+      JSON.stringify({
+        message: call
+          ? { content: '', tool_calls: [{ function: call }] }
+          : { content: 'The change is complete.' },
+        done: true,
+      }) + '\n',
+    );
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const store = new Store(path.join(directory, 'state'));
+  await store.load();
+  t.after(async () => {
+    server.closeAllConnections();
+    server.close();
+    await store.close();
+    await fs.rm(directory, { recursive: true, force: true });
+  });
+  store.value.workspacePath = root;
+  store.value.settings = {
+    ...store.value.settings,
+    endpoint: `http://127.0.0.1:${(server.address() as { port: number }).port}`,
+    model: 'local',
+    mapFormat: 'compact',
+  };
+  let questionCount = 0;
+  let agent: Agent;
+  agent = new Agent(store, (event) => {
+    if (event.type === 'approval') queueMicrotask(() => agent.approve(event.approval.id, true));
+    if (event.type === 'clarification') {
+      questionCount++;
+      assert.equal(event.clarification.options.length, 3);
+      const finish = event.clarification.options.find((option) =>
+        option.label.startsWith('Finish'),
+      );
+      queueMicrotask(() => agent.answerClarification(event.clarification.id, finish!.id));
+    }
+  });
+  await agent.run('Change the exported value.');
+  const task = store.value.sessions[0].task!;
+  assert.equal(questionCount, 1);
+  assert.equal(task.validations.length, 1);
+  assert.equal(task.validations[0].status, 'failed');
+  assert.equal(task.outcome, 'stopped');
+  assert.equal(store.value.sessions[0].checkpoint?.resumable, false);
+});
+
 test('semantic rename groups references while preserving shorthand property contracts', () => {
   const engine = createAnalysisEngine();
   const result = engine.query({

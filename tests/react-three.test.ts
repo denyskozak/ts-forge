@@ -184,10 +184,7 @@ test('agent automatically includes R3F guidance and executes inspect_scene with 
         message:
           requests.length === 1
             ? {
-                content: '',
-                tool_calls: [
-                  { function: { name: 'inspect_scene', arguments: { query: 'canvas' } } },
-                ],
+                content: 'I called inspect_scene and found the Canvas.',
               }
             : { content: 'Canvas is declared in World.tsx. Visual verification remains pending.' },
         done: true,
@@ -212,7 +209,9 @@ test('agent automatically includes R3F guidance and executes inspect_scene with 
     mapFormat: 'compact',
     skills: ['typescript'],
   };
-  await new Agent(store, () => {}).run('Add keyboard interaction to the scene.');
+  await new Agent(store, () => {}).run(
+    'Call inspect_scene and report the current scene. Read-only task.',
+  );
   const system = requests[0].messages!.find((message) => message.role === 'system')!.content;
   assert.match(system, /call inspect_scene before editing/);
   assert.match(system, /Canvas context/);

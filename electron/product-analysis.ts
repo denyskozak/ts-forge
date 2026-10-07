@@ -16,39 +16,45 @@ export const PRODUCT_RECIPES: ProductRecipe[] = [
     name: 'SaaS project starter',
     base: 'next',
     description:
-      'Next.js project workflow with tested ownership rules. Demo identity and in-memory data require server authentication and persistence before deployment.',
-    checks: ['typecheck', 'domain and authorization tests', 'build', 'browser smoke'],
+      'Next.js workflow with SQLite persistence, scrypt password sessions and tested owner isolation.',
+    checks: ['typecheck', 'identity and persistence tests', 'build', 'browser persistence smoke'],
   },
   {
     id: 'storefront',
     name: 'Storefront',
     base: 'next',
     description:
-      'Catalog, stock-aware cart and tested integer-price calculations. Checkout fails explicitly until a payment provider is configured.',
-    checks: ['typecheck', 'cart tests', 'build', 'cart browser flow'],
+      'Persistent catalog/cart, password sessions and integer-price calculations. Checkout fails explicitly until a payment provider is configured.',
+    checks: ['typecheck', 'identity and cart persistence tests', 'build', 'cart browser flow'],
   },
   {
     id: 'dashboard',
     name: 'Dashboard',
     base: 'next',
     description:
-      'Filterable catalog table and tested authorization boundaries. Connect real server identity and data before deployment.',
-    checks: ['typecheck', 'authorization tests', 'build', 'filter browser flow'],
+      'Filterable persistent catalog with password sessions and tested authorization boundaries.',
+    checks: ['typecheck', 'identity and authorization tests', 'build', 'filter browser flow'],
   },
   {
     id: 'api',
     name: 'TypeScript API',
     base: 'api',
     description:
-      'Node TypeScript API with versioned catalog/quote routes, input validation, OpenAPI and real request/response contract tests.',
-    checks: ['typecheck', 'route tests', 'OpenAPI validation', 'local HTTP smoke'],
+      'Node TypeScript API with SQLite identity/data, owner-scoped routes, input validation, OpenAPI and contract tests.',
+    checks: ['typecheck', 'auth and route tests', 'OpenAPI validation', 'local HTTP smoke'],
   },
   {
     id: 'monorepo',
     name: 'Product monorepo',
     base: 'react',
-    description: 'pnpm workspace with web, API and shared contract packages.',
-    checks: ['recursive typecheck', 'package tests', 'dependency boundaries', 'browser smoke'],
+    description:
+      'pnpm workspace with a web client, persistent authenticated API and shared contract package.',
+    checks: [
+      'recursive typecheck',
+      'identity and package tests',
+      'dependency boundaries',
+      'browser smoke',
+    ],
   },
 ];
 

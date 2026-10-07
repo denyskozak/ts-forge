@@ -252,8 +252,14 @@ try {
   );
   await page.evaluate(() => {
     class FakeSpeechRecognition extends EventTarget {
-      static async available() {
-        return 'available';
+      static checks = 0;
+      static async available(options) {
+        globalThis.__speechAvailabilityOptions = options;
+        return this.checks++ === 0 ? 'downloadable' : 'available';
+      }
+      static async install(options) {
+        globalThis.__speechInstallOptions = options;
+        return true;
       }
       continuous = false;
       interimResults = false;
@@ -263,6 +269,10 @@ try {
       onerror = null;
       onend = null;
       start() {
+        globalThis.__speechRecognitionStarted = {
+          lang: this.lang,
+          processLocally: this.processLocally,
+        };
         setTimeout(
           () =>
             this.onresult?.({
@@ -305,13 +315,33 @@ try {
       },
     });
   });
+  const voiceLanguage = page.getByRole('combobox', { name: 'Voice language' });
+  await expect(voiceLanguage).toHaveValue('auto');
+  assert.equal(await voiceLanguage.locator('option').count(), 9);
+  await voiceLanguage.selectOption('es-ES');
+  await expect
+    .poll(async () => (await page.evaluate(() => window.forge.state())).settings.speechLanguage)
+    .toBe('es-ES');
   await page.getByRole('button', { name: 'Start voice input' }).click();
   await page.getByRole('status', { name: 'Voice input active' }).waitFor();
+  assert.deepEqual(
+    await page.evaluate(() => ({
+      available: globalThis.__speechAvailabilityOptions,
+      install: globalThis.__speechInstallOptions,
+      started: globalThis.__speechRecognitionStarted,
+    })),
+    {
+      available: { langs: ['es-ES'], processLocally: true, quality: 'dictation' },
+      install: { langs: ['es-ES'], processLocally: true, quality: 'dictation' },
+      started: { lang: 'es-ES', processLocally: true },
+    },
+  );
   await page.screenshot({ path: 'docs/forge-voice.png' });
   await page.getByRole('button', { name: 'Stop voice input' }).click();
   await expect(page.getByRole('textbox', { name: 'Message Forge' })).toHaveValue(
     'voice transcript',
   );
+  await voiceLanguage.selectOption('auto');
   await page.getByRole('textbox', { name: 'Message Forge' }).fill('');
   await page.screenshot({ path: 'docs/forge-preview.png' });
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
@@ -409,7 +439,9 @@ try {
     browserMessages.find((message) => message.name === 'browser_screenshot').content,
   );
   assert.equal(capture.viewport.width, 390);
-  await page.getByRole('button', { name: 'View screenshot', exact: true }).click();
+  const previewCard = page.locator('details.tool-result').filter({ hasText: 'Preview captured' });
+  await previewCard.locator(':scope > summary').click();
+  await previewCard.getByRole('button', { name: 'View preview', exact: true }).click();
   await expect(page.getByAltText('Captured local preview')).toBeVisible();
   await expect
     .poll(() => page.getByAltText('Captured local preview').evaluate((image) => image.naturalWidth))
@@ -512,7 +544,7 @@ try {
   await page.getByRole('button', { name: 'Run check', exact: true }).click();
   await page.getByRole('button', { name: 'Stop agent' }).waitFor({ state: 'hidden' });
   const featureState = await page.evaluate(() => window.forge.state());
-  assert.equal(featureState.sessions[0].checkpoint.step, 5);
+  assert.equal(featureState.sessions[0].checkpoint.step, 4);
   await page.evaluate(async () => {
     const state = await window.forge.state();
     await window.forge.settings({ ...state.settings, maxSteps: 12 });
@@ -520,6 +552,7 @@ try {
   assert.equal(featureState.sessions[0].task.outcome, 'completed_unverified');
   assert.equal(featureState.sessions[0].task.validations.at(-1).status, 'passed');
   assert.match(await readFile(path.join(project, 'index.ts'), 'utf8'), /import/);
+  await page.locator('.task-panel > summary').click();
   const checkboxes = page.locator('.task-criterion input');
   for (let index = 0; index < (await checkboxes.count()); index++) {
     await checkboxes.nth(index).click();

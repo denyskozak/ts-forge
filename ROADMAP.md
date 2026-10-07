@@ -39,7 +39,8 @@ Foundations below are implemented in part. Checked items describe available beha
 - [x] Local HTTP request/response assertions and bundled API contract tests.
 - [x] Runnable SaaS, storefront, dashboard, API and monorepo development starters.
 - [ ] Semantic tRPC/React Query graph, generated-client compatibility and OpenAPI schema diffing.
-- [ ] Production identity, persistence, checkout/webhooks and background jobs in product starters.
+- [x] Local SQLite identity/persistence foundation with password sessions, owner isolation and restart tests.
+- [ ] Email verification/recovery, checkout/webhooks and background jobs in product starters.
 - [ ] Isolated PostgreSQL package-script seeds and representative-data migration suites.
 
 ## 0.5 — Maintenance as a first-class workflow

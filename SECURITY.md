@@ -17,3 +17,9 @@ MCP is disabled until the user enables a configured profile. Stdio servers run o
 Managed package scripts also execute project code outside the isolated validation runner after review. Recovery checks process start/command identity before signaling a saved PID. Local browser sessions deny new windows, permissions and network requests outside approved loopback origins. Screenshots are readable through IPC only from the preview artifact directory.
 
 Disposable databases are distinct from project environment targets. SQLite migration/seed work uses copies; seeds receive no original `.env` files and cannot use network in the macOS sandbox. PostgreSQL SQL runs only in a Forge-labeled disposable Docker container, with dry-runs rolled back. Static migration hints are not a safety guarantee. Representative fixtures, backups and review remain necessary before any separate production workflow.
+
+## Generated product identity
+
+Bundled product starters use a local SQLite database, per-user scrypt password hashes and random session tokens stored only as SHA-256 hashes. Browser sessions use HttpOnly, SameSite=Strict cookies; cookie-authenticated mutations require the configured request origin. Queries enforce owner identity at the data boundary, and generated tests cover password failure, logout, owner isolation, persistence after reopening and cross-origin mutation rejection.
+
+These controls are an application foundation, not a hosted identity service. A deployment must still configure HTTPS, email verification and recovery, abuse and rate limits, secret rotation, monitoring, audit retention and tested database backup/restore. Storefront checkout remains unavailable until a real payment provider and verified webhook flow are configured.

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/forge-llama-hero.png" alt="A friendly armored llama guarding a local coding workspace" width="30%" />
+  <img src="docs/assets/forge-anvil-hero.png" alt="A copper anvil with a forged TypeScript mark and lightning bolt" width="30%" />
 </p>
 
 <h1 align="center">TS Forge</h1>
@@ -19,6 +19,10 @@ TS Forge is an open-source desktop coding harness for local language models. It 
 
 It builds a compact mental model of each workspace before a task, gives the model controlled inspection tools, pauses for important product decisions, and requires human review before changing files or running the compiler.
 
+<p align="center">
+  <img src="docs/assets/forge-workspace.png" alt="TS Forge workspace with a local TypeScript coding session" width="100%" />
+</p>
+
 ## What is already working
 
 | Area                        | Capability                                                                                                                      |
@@ -27,7 +31,7 @@ It builds a compact mental model of each workspace before a task, gives the mode
 | **Project understanding**   | Detects frameworks, entrypoints, routes, screens, state, navigation, data boundaries, and internal import relationships.        |
 | **TypeScript intelligence** | Provides diagnostics, definitions, references, quick info, project configuration analysis, and an isolated full compiler check. |
 | **Agent workflow**          | Runs a bounded model/tool loop with streaming output, context compaction, stop handling, and persistent sessions.               |
-| **Critical questions**      | Lets the model pause with 2–4 answer choices when a missing decision can materially change the implementation.                  |
+| **Critical questions**      | Lets the model pause with three answer choices and a custom response when a missing decision can materially change the work.    |
 | **Reviewed changes**        | Uses exact source replacements, visible diffs, explicit approval, atomic writes, checkpoints, and guarded undo.                 |
 | **Multiple workspaces**     | Saves local projects, switches between them, and refreshes analysis when a workspace opens.                                     |
 | **Voice drafts**            | Performs on-device speech recognition, shows a live waveform, and inserts the transcript without sending it.                    |
@@ -139,13 +143,15 @@ For an empty workspace Forge can run a reviewed pnpm-first scaffold for React/Vi
 
 For existing projects the agent can discover exact `package.json` scripts, start and stop managed processes, retain bounded logs and detect loopback preview URLs. Dependency additions and removals use pnpm with lifecycle scripts disabled. The interactive browser accepts local HTTP URLs only and can inspect controls, click, fill fields, press allowlisted keys, read console/load failures and save screenshots for review.
 
-`scaffold_product` also writes bundled, reviewable **SaaS, storefront, dashboard, API and pnpm monorepo starters** without running an external generator. They include real source files, domain/authorization tests, API contract tests where applicable and browser scenarios for web products. Installation is a separate reviewed action. These are development foundations: demo identity, in-memory data and unconfigured payment boundaries are clearly marked, not production integrations.
+`scaffold_product` also writes bundled, reviewable **SaaS, storefront, dashboard, API and pnpm monorepo starters** without running an external generator. They include SQLite migrations, scrypt password hashing, hashed server-side sessions, HttpOnly/SameSite cookies, owner-scoped data access, persistence/auth contract tests and browser scenarios that verify data after reload. Installation is a separate reviewed action. Deployment still needs environment-specific HTTPS, email verification and recovery, abuse controls, monitoring, backup/restore and payment/webhook providers where applicable.
 
 ### Focused tools and resumable tasks
 
 The model receives core TypeScript tools plus one relevant optional capability group. `enable_tool_group` switches between development, browser, data, Git, knowledge, maintenance, SSH and MCP; small native/R3F inspection groups can stay loaded. Disabled web search is never advertised. Tool schemas count toward the context budget. Required engineering rules are concise during inference; `skill_instructions` retrieves a full runbook when needed.
 
 The harness enforces `plan_task` before file, scaffold or dependency changes. Checkpoints retain the original goal, criteria, validation receipts, applied changes, current phase, pass count and loaded groups after each tool. **Resume task** continues after a stop, restart or step limit without resetting the task contract. It re-analyzes current sources, requires fresh file reads and does not replay unfinished tool calls automatically. Historical summaries survive message compaction; uncertain side effects must be inspected before retrying.
+
+Small local models sometimes return valid-looking tool arguments in the wrong JSON shape—for example, an array encoded inside a string, a criterion wrapped in `{ "description": ... }`, an invented absolute path or a common argument alias. Forge accepts a repair only when the complete object passes the advertised schema. If a model answers with prose instead of a required action, the retry is constrained to a JSON schema for the currently allowed tools and then passes through the same Zod validation, review and approval boundary. Explicit read-only requests can recover safe printed envelopes and skip an unnecessary `plan_task`. A single remaining contract check is executed from the saved check object instead of asking the model to reconstruct its arguments.
 
 ### Browser evidence and maintenance
 
@@ -205,13 +211,14 @@ Workflow references: official Git documentation for [status](https://git-scm.com
 
 ## Task contracts, grouped changes, and evidence
 
-Each run starts with a persisted task contract. The agent can refine its goal, constraints, out-of-scope work, acceptance criteria, and required checks through `plan_task`. The original user request remains an acceptance criterion.
+Each run starts with a persisted task contract. The agent can refine its goal, constraints, out-of-scope work, acceptance criteria, and required checks through `plan_task`. Its explicit acceptance criteria replace the initial request placeholder so the interface does not repeat the same task.
 
 - **Review together:** `apply_changeset` proposes up to 40 files under one approval, with an impact preview. All original versions are checked before writing. A journal supports rollback after failure, cancellation, or restart; undo preserves concurrent user edits and reports conflicts. Individual file writes are atomic, but other processes can observe intermediate files during a multi-file change.
 - **Validate in isolation:** `run_validation` runs a fixed recipe in a temporary project snapshot with network access denied and the original workspace protected from writes. Recipes cover TypeScript, Vitest/Jest or explicit Node tests, ESLint, Prettier, Next.js, installed Expo Doctor, and package export target existence. Missing tools produce an unavailable result; Forge never installs them automatically.
 - **Verify explicitly:** checks record their real exit status and source fingerprint. The task becomes `completed_verified` only after changes are applied, all required checks pass for that fingerprint, and you confirm every acceptance criterion in the Task contract panel. A model's final message cannot assign this status. Checks can be rerun from the panel.
 - **Reuse analysis:** each active workspace keeps a TypeScript language service, updates changed source versions, and exposes paginated references. The cache retains at most three workspaces and invalidates on filesystem events and Forge edits.
 - **Inspect impact:** `analyze_impact` traces resolved static imports and re-exports to consumers, related tests, exports, and possible framework/security boundaries. The preview includes source edges and limitations before approval.
+- **Read results:** tool receipts render as purpose-specific UI for plans, files, changes, checks, analysis, browsers, processes, packages, Git, SSH, MCP and databases. Protocol identifiers and raw JSON stay out of the chat; long text logs remain available on demand.
 
 ![Task contract with validation evidence](docs/forge-task-verified.png)
 
@@ -230,7 +237,7 @@ Before choosing actions on each step, the local model checks whether one missing
 - data-loss risk;
 - task scope.
 
-When that happens, the model calls `ask_user_question` with 2–4 concrete options. Forge enters a persisted waiting state and returns the selected option to the same model/tool loop. If the model asks a question alongside other tool calls, those sibling actions are skipped until the answer arrives.
+When that happens, the model calls `ask_user_question` with three concrete options. The interface adds a fourth choice for a custom response. Forge enters a persisted waiting state and returns the answer to the same model/tool loop. If the model asks a question alongside other tool calls, those sibling actions are skipped until the answer arrives.
 
 The agent is instructed to inspect the repository instead of asking about discoverable facts, and to use a safe reversible default for low-impact choices.
 

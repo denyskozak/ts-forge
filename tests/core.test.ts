@@ -9,8 +9,8 @@ import { safePath, readText, applyChange, listFiles } from '../electron/workspac
 import { localEndpoint, models, chat } from '../electron/provider';
 import { splitDataset } from '../electron/training';
 import { Store } from '../electron/store';
-import { Agent } from '../electron/agent';
-import type { AgentEvent, Example } from '../shared/types';
+import { Agent, requestsProjectChange, scaffoldTemplateForPrompt } from '../electron/agent';
+import type { AgentEvent, Approval, Example } from '../shared/types';
 async function fixture() {
   return fs.mkdtemp(path.join(os.tmpdir(), 'forge-test-'));
 }
@@ -170,6 +170,10 @@ for (const decision of ['approve', 'deny', 'stop'] as const)
     await fs.mkdir(path.join(root, 'project'));
     const project = path.join(root, 'project');
     await fs.writeFile(path.join(project, 'index.ts'), 'const old = 1;');
+    await fs.writeFile(
+      path.join(project, 'tsconfig.json'),
+      JSON.stringify({ compilerOptions: { noEmit: true }, files: ['index.ts'] }),
+    );
     let step = 0;
     const { server, endpoint } = await mockServer((req, res) => {
       res.setHeader('Content-Type', 'application/json');
@@ -289,6 +293,7 @@ for (const custom of [false, true])
     const agent = new Agent(store, (event) => {
       events.push(event);
       if (event.type === 'clarification') {
+        assert.equal(event.clarification.options.length, 3);
         observedWaitingState =
           store.value.activeRun?.status === 'waiting' &&
           store.value.activeRun.clarification?.id === event.clarification.id;
@@ -421,9 +426,93 @@ test('implementation-only prose cannot silently complete a task without files', 
     model: 'test:local',
     mapFormat: 'compact',
   };
-  await new Agent(store, () => {}).run('Create a calculator application.');
+  let clarificationSeen = false;
+  let agent: Agent;
+  agent = new Agent(store, (event) => {
+    if (event.type !== 'clarification') return;
+    clarificationSeen = true;
+    assert.equal(event.clarification.options.length, 3);
+    const finish = event.clarification.options.find((option) => option.label.startsWith('Finish'));
+    queueMicrotask(() => agent.answerClarification(event.clarification.id, finish!.id));
+  });
+  await agent.run('Create a calculator application.');
+  assert.equal(calls, 7);
+  assert.equal(clarificationSeen, true);
+  assert.equal(store.value.sessions[0].task?.outcome, 'stopped');
+  assert.equal(store.value.sessions[0].checkpoint?.resumable, false);
+  assert.match(store.value.sessions[0].messages.at(-1)!.content, /no changes were applied/i);
+  assert.deepEqual(await fs.readdir(project), []);
+});
+
+test('Russian build slang routes an empty R3F feature through real scaffolding', async (t) => {
+  const prompt =
+    'давай забилдим игру на r3f в 2д змейку на клавиатуре, сделай поиск по правилам игры и имплементируй их';
+  assert.equal(requestsProjectChange(prompt), true);
+  assert.equal(scaffoldTemplateForPrompt(prompt), 'r3f');
+  const root = await fixture();
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const project = path.join(root, 'snake-project');
+  await fs.mkdir(project);
+  let calls = 0;
+  const { server, endpoint } = await mockServer(async (req, res) => {
+    for await (const _ of req) {
+      /* drain body */
+    }
+    if (req.url === '/api/tags') return res.end('{"models":[{"name":"test:local","size":1}]}');
+    if (req.url === '/api/show') return res.end('{}');
+    calls++;
+    const message =
+      calls === 1
+        ? {
+            content: '',
+            tool_calls: [
+              {
+                function: {
+                  name: 'plan_task',
+                  arguments: {
+                    goal: prompt,
+                    criteria: ['A playable keyboard-controlled snake game exists'],
+                    requiredChecks: [{ recipe: 'typescript.check' }],
+                  },
+                },
+              },
+            ],
+          }
+        : calls === 2
+          ? {
+              content: '',
+              tool_calls: [{ function: { name: 'install_pnpm_dependencies', arguments: {} } }],
+            }
+          : {
+              content:
+                'Начнем с scaffold_project, затем добавим игру. Окончательный ответ: {"appliedChanges":0,"outcome":"success"}',
+            };
+    res.end(`${JSON.stringify({ message, done: true })}\n`);
+  });
+  t.after(() => server.close());
+  const store = new Store(path.join(root, 'data'));
+  await store.load();
+  t.after(() => store.close());
+  store.value.workspacePath = project;
+  store.value.settings = {
+    ...store.value.settings,
+    endpoint,
+    model: 'test:local',
+    mapFormat: 'compact',
+  };
+  const approvals: Approval[] = [];
+  const agent = new Agent(store, (event) => {
+    if (event.type !== 'approval') return;
+    approvals.push(event.approval);
+    queueMicrotask(() => agent.approve(event.approval.id, false));
+  });
+  await agent.run(prompt);
   assert.equal(calls, 3);
+  assert.equal(approvals.length, 1);
+  assert.equal(approvals[0].kind, 'scaffold');
+  assert.match(approvals[0].title, /r3f project named snake-project/i);
   assert.equal(store.value.sessions[0].task?.outcome, 'failed');
+  assert.equal(store.value.sessions[0].checkpoint?.resumable, true);
   assert.match(store.value.sessions[0].messages.at(-1)!.content, /no changes were applied/i);
   assert.deepEqual(await fs.readdir(project), []);
 });

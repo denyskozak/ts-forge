@@ -112,6 +112,17 @@ export async function resolveRecipe(
         ...tests.map((file) => path.join(snapshot, file)),
       ]);
     }
+    const nativeTypeScriptTests = check.files.filter((file) => /\.(test|spec)\.ts$/.test(file));
+    if (
+      check.recipe === 'tests.related' &&
+      nativeTypeScriptTests.length === check.files.length &&
+      nativeTypeScriptTests.length &&
+      Number(process.versions.node.split('.')[0]) >= 22
+    )
+      return {
+        args: ['--test', ...nativeTypeScriptTests.map((file) => path.join(snapshot, file))],
+        reads: [],
+      };
     const tests = check.files.filter((f) => /\.(test|spec)\.[cm]?js$/.test(f));
     if (check.recipe === 'tests.related' && tests.length === check.files.length && tests.length)
       return { args: ['--test', ...tests.map((f) => path.join(snapshot, f))], reads: [] };

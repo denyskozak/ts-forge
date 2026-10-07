@@ -203,12 +203,18 @@ export async function startPackageProcess(root: string, script: string) {
   );
   if (existing) return processView(existing);
   const pnpm = await resolveExecutable('pnpm');
-  const child = spawn(pnpm, ['run', checked], {
-    cwd: root,
-    detached: true,
-    env: executableEnvironment(pnpm, { FORCE_COLOR: '0' }),
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  const command = manifest.scripts[checked];
+  const localViteHost = /^vite(?:\s|$)/.test(command) && !/(?:^|\s)--host(?:\s|=|$)/.test(command);
+  const child = spawn(
+    pnpm,
+    ['run', checked, ...(localViteHost ? ['--host', '127.0.0.1'] : [])],
+    {
+      cwd: root,
+      detached: true,
+      env: executableEnvironment(pnpm, { FORCE_COLOR: '0' }),
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
   const record: ProcessRecord = {
     id: randomUUID(),
     root,
@@ -239,16 +245,21 @@ export async function startPackageProcess(root: string, script: string) {
   if (child.pid) record.identity = await processIdentity(child.pid);
   processes.set(record.id, record);
   await persistProcesses();
-  await new Promise((resolve) => setTimeout(resolve, 350));
-  if (record.exitCode !== undefined)
-    throw new Error(record.output || `Process exited with ${record.exitCode}.`);
+  const readyDeadline = Date.now() + 5000;
+  while (Date.now() < readyDeadline) {
+    if (record.exitCode !== undefined)
+      throw new Error(record.output || `Process exited with ${record.exitCode}.`);
+    if (processView(record).urls.length) break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
   await probeProcessHealth(record);
   return processView(record);
 }
 
 function processView(record: ProcessRecord) {
+  const cleanOutput = record.output.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '');
   const urls = [
-    ...record.output.matchAll(/https?:\/\/(?:127\.0\.0\.1|localhost):\d+(?:\/[^\s]*)?/g),
+    ...cleanOutput.matchAll(/https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):\d+(?:\/[^\s]*)?/g),
   ].map((match) => match[0]);
   const uniqueUrls = [...new Set(urls)].slice(-5);
   const ports = uniqueUrls.flatMap((value) => {
@@ -419,7 +430,7 @@ export async function scaffoldProject(
   try {
     const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
     manifest.name = name;
-    manifest.packageManager ??= 'pnpm@10';
+    manifest.packageManager ??= 'pnpm@11.15.1';
     await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   } catch {}
   return { template, name, commands: results, workspace: root };

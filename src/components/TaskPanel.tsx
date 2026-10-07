@@ -78,79 +78,157 @@ export function TaskPanel({
       setWorking(false);
     }
   };
+  const checks = task.requiredChecks.map((check, index) => {
+    const result = task.validations.findLast((item) => checkKey(item) === checkKey(check));
+    const status = result
+      ? result.fingerprint && result.fingerprint !== task.fingerprint
+        ? 'stale'
+        : result.status
+      : 'not run';
+    return { check, index, result, status };
+  });
+  const criteria = task.criteria.reduce<{ description: string; members: TaskRecord['criteria'] }[]>(
+    (groups, criterion) => {
+      const normalized = criterion.description.trim().toLocaleLowerCase();
+      const group = groups.find(({ description }) => {
+        const existing = description.trim().toLocaleLowerCase();
+        return existing.includes(normalized) || normalized.includes(existing);
+      });
+      if (!group) groups.push({ description: criterion.description, members: [criterion] });
+      else {
+        group.members.push(criterion);
+        if (criterion.description.length > group.description.length)
+          group.description = criterion.description;
+      }
+      return groups;
+    },
+    [],
+  );
+  const passedChecks = checks.filter(({ status }) => status === 'passed').length;
+  const acceptedCriteria = criteria.filter(
+    ({ members }) =>
+      !!task.fingerprint &&
+      members.every((criterion) => criterion.acceptedFingerprint === task.fingerprint),
+  ).length;
+  const status =
+    task.outcome === 'in_progress'
+      ? 'Working'
+      : task.outcome === 'completed_verified'
+        ? 'Done'
+        : task.outcome === 'completed_unverified'
+          ? 'Review'
+          : task.outcome === 'analysis_only'
+            ? 'Analyzed'
+            : task.outcome === 'stopped'
+              ? 'Paused'
+              : 'Failed';
   return (
-    <details className="task-panel" open={task.outcome === 'in_progress' ? undefined : true}>
-      <summary>
-        Task contract <span>{task.outcome.replaceAll('_', ' ')}</span>
+    <details className="task-panel">
+      <summary className="task-panel-summary">
+        <span className="task-panel-copy">
+          <strong>Task</strong>
+          <span title={task.goal}>{task.goal}</span>
+        </span>
+        <span className={`task-state task-state-${task.outcome}`}>{status}</span>
       </summary>
-      <p>{task.goal}</p>
-      {!!task.constraints.length && (
-        <p>
-          <strong>Constraints:</strong> {task.constraints.join(' · ')}
-        </p>
-      )}
-      {!!task.outOfScope.length && (
-        <p>
-          <strong>Out of scope:</strong> {task.outOfScope.join(' · ')}
-        </p>
-      )}
-      <strong>Acceptance criteria</strong>
-      {task.criteria.map((criterion) => (
-        <label key={criterion.id} className="task-criterion">
-          <input
-            type="checkbox"
-            checked={!!task.fingerprint && criterion.acceptedFingerprint === task.fingerprint}
-            disabled={
-              busy ||
-              working ||
-              !sessionId ||
-              ['failed', 'stopped', 'in_progress'].includes(task.outcome)
-            }
-            onChange={() => void action(() => api.acceptCriterion(sessionId!, criterion.id))}
-          />
-          <span>{criterion.description}</span>
-        </label>
-      ))}
-      <small>
-        Confirm these only after reviewing the behavior. Successful checks alone do not prove the
-        feature is correct.
-      </small>
-      <strong className="task-check-title">Required checks</strong>
-      {task.requiredChecks.map((check, index) => {
-        const result = task.validations.findLast((item) => checkKey(item) === checkKey(check));
-        const status = result
-          ? result.fingerprint && result.fingerprint !== task.fingerprint
-            ? 'stale'
-            : result.status
-          : 'not run';
-        return (
-          <div className="task-check" key={`${checkKey(check)}:${index}`}>
-            <div>
+      <div className="task-panel-body">
+        <div className="task-progress" aria-label="Task progress">
+          <span>{task.appliedChanges} changed</span>
+          <span>
+            {passedChecks}/{checks.length} checks
+          </span>
+          <span>
+            {acceptedCriteria}/{criteria.length} reviewed
+          </span>
+        </div>
+
+        {!!checks.length && (
+          <section className="task-section">
+            <header>
+              <strong>Checks</strong>
               <span>
-                {check.recipe} · {check.project}
+                {passedChecks}/{checks.length}
               </span>
-              <b>{status}</b>
-            </div>
-            {!!check.files.length && <small>{check.files.join(', ')}</small>}
-            <button
-              disabled={busy || working || !sessionId}
-              onClick={() => void action(() => api.validateTask(sessionId!, index))}
-            >
-              Run isolated check
-            </button>
-            {result && (
-              <details>
-                <summary>Result · {result.durationMs} ms</summary>
-                <pre>{result.output}</pre>
-              </details>
-            )}
-          </div>
-        );
-      })}
-      <small>
-        Checks execute installed project tools/config in a temporary copy. Network and original
-        workspace writes are denied.
-      </small>
+            </header>
+            {checks.map(({ check, index, result, status: checkStatus }) => (
+              <div className="task-check" key={`${checkKey(check)}:${index}`}>
+                <div className="task-check-row">
+                  <span className="task-check-name" title={`${check.recipe} · ${check.project}`}>
+                    {check.recipe}
+                  </span>
+                  <span className={`task-check-status task-check-status-${checkStatus}`}>
+                    {checkStatus}
+                  </span>
+                  {checkStatus !== 'passed' && (
+                    <button
+                      disabled={busy || working || !sessionId}
+                      onClick={() => void action(() => api.validateTask(sessionId!, index))}
+                    >
+                      Run
+                    </button>
+                  )}
+                </div>
+                {!!check.files.length && <small>{check.files.join(', ')}</small>}
+                {result && (
+                  <details className="task-check-result">
+                    <summary>Output · {result.durationMs} ms</summary>
+                    <pre>{result.output}</pre>
+                  </details>
+                )}
+              </div>
+            ))}
+          </section>
+        )}
+
+        {!!criteria.length && (
+          <section className="task-section">
+            <header>
+              <strong>Review</strong>
+              <span>
+                {acceptedCriteria}/{criteria.length}
+              </span>
+            </header>
+            {criteria.map((criterion) => (
+              <label
+                key={criterion.members.map(({ id }) => id).join(':')}
+                className="task-criterion"
+              >
+                <input
+                  type="checkbox"
+                  checked={
+                    !!task.fingerprint &&
+                    criterion.members.every(
+                      (member) => member.acceptedFingerprint === task.fingerprint,
+                    )
+                  }
+                  disabled={
+                    busy ||
+                    working ||
+                    !sessionId ||
+                    ['failed', 'stopped', 'in_progress'].includes(task.outcome)
+                  }
+                  onChange={() =>
+                    void action(async () => {
+                      for (const member of criterion.members)
+                        if (member.acceptedFingerprint !== task.fingerprint)
+                          await api.acceptCriterion(sessionId!, member.id);
+                    })
+                  }
+                />
+                <span>{criterion.description}</span>
+              </label>
+            ))}
+          </section>
+        )}
+
+        {(task.constraints.length > 0 || task.outOfScope.length > 0) && (
+          <details className="task-scope">
+            <summary>Scope</summary>
+            {!!task.constraints.length && <p>{task.constraints.join(' · ')}</p>}
+            {!!task.outOfScope.length && <p>Excluded: {task.outOfScope.join(' · ')}</p>}
+          </details>
+        )}
+      </div>
     </details>
   );
 }

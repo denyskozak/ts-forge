@@ -12,7 +12,12 @@ import {
 } from 'lucide-react';
 import { api } from './api';
 import { McpSettings } from './components/McpSettings';
-import type { Settings, ConnectionTest, SshProfile } from '../shared/types';
+import {
+  SPEECH_LANGUAGES,
+  type Settings,
+  type ConnectionTest,
+  type SshProfile,
+} from '../shared/types';
 export default function SettingsPage({
   settings,
   dataPath,
@@ -201,18 +206,21 @@ export default function SettingsPage({
           On-device speech language
           <select
             aria-label="Speech recognition language"
-            value={draft.speechLanguage}
+            value={draft.speechLanguage === 'en-US' ? 'auto' : draft.speechLanguage}
             onChange={(e) =>
               update({ speechLanguage: e.target.value as Settings['speechLanguage'] })
             }
           >
-            <option value="auto">System language</option>
-            <option value="ru-RU">Русский</option>
-            <option value="en-US">English</option>
+            {SPEECH_LANGUAGES.map((language) => (
+              <option key={language.value} value={language.value}>
+                {language.label}
+                {language.value === 'auto' ? ' · recommended' : ''}
+              </option>
+            ))}
           </select>
           <small>
-            Voice input requires a local Chromium speech pack. Forge never falls back to remote
-            speech recognition.
+            Automatic mode uses the local English (US) dictation pack because regional browser
+            locales may not be downloadable. Forge never sends voice to remote recognition.
           </small>
         </label>
       </div>

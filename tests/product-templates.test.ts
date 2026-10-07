@@ -42,10 +42,17 @@ test('all product starters run their domain and contract tests from persisted fi
     );
   }
 });
-test('product scaffolds retain explicit production limitations and separate install', () => {
+test('product scaffolds include persistent auth while retaining operational limits', () => {
   for (const recipe of ['saas', 'storefront', 'dashboard', 'api', 'monorepo'] as const) {
     const files = productFiles(recipe, 'demo');
-    assert.match(files['README.md'], /before deployment|Before production/);
+    const source = (suffix: string) =>
+      Object.entries(files).find(([file]) => file.endsWith(suffix))?.[1] ?? '';
+    assert.match(files['README.md'], /server-side password sessions/);
+    assert.match(files['README.md'], /email verification\/recovery/);
+    assert.match(source('src/auth.ts'), /scryptSync/);
+    assert.match(source('src/auth.ts'), /HttpOnly; SameSite=Strict/);
+    assert.match(source('src/persistence.ts'), /CREATE TABLE IF NOT EXISTS users/);
+    assert.match(source('src/persistence.test.ts'), /survive reopening/);
     assert.ok(Object.keys(files).some((file) => file.endsWith('domain.test.ts')));
     const manifest = JSON.parse(files['package.json']);
     assert.ok(manifest.scripts.test);

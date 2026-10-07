@@ -112,9 +112,11 @@ export default function App() {
   } = runView;
   const [prompt, setPrompt] = useState('');
   const [customAnswer, setCustomAnswer] = useState('');
+  const [customAnswerOpen, setCustomAnswerOpen] = useState(false);
   const [answerPending, setAnswerPending] = useState(false);
   useEffect(() => {
     setCustomAnswer('');
+    setCustomAnswerOpen(false);
     setAnswerPending(false);
   }, [clarification?.id]);
   const [rightOpen, setRightOpen] = useState(false);
@@ -432,8 +434,8 @@ export default function App() {
           <div className="brand-symbol">
             <Mark small />
           </div>
-          <span>
-            forge<span className="brand-dot">.</span>
+          <span className="brand-name">
+            TS <span className="brand-separator">-</span> Forge
           </span>
           <span className="version">ALPHA</span>
         </div>
@@ -513,7 +515,7 @@ export default function App() {
         </div>
         <div className="session-list">
           {sessions.length ? (
-            sessions.slice(0, 8).map((s) => (
+            sessions.map((s) => (
               <button
                 key={s.id}
                 disabled={busy}
@@ -533,20 +535,6 @@ export default function App() {
           )}
         </div>
         <div className="sidebar-bottom">
-          <div className="private-card">
-            <div className="private-icon">
-              <ShieldCheck size={19} />
-            </div>
-            <div>
-              <strong>Yours. And only yours.</strong>
-              <p>
-                Local models. Local files.
-                <br />
-                No account required.
-              </p>
-            </div>
-            <span className="green-dot" />
-          </div>
           <button
             className={`nav-item ${page === 'settings' ? 'active' : ''}`}
             onClick={() => setPage('settings')}
@@ -554,15 +542,6 @@ export default function App() {
             <Settings2 size={17} />
             <span>Settings</span>
           </button>
-          <div className="sidebar-footer">
-            <span className="avatar">F</span>
-            <span>
-              Personal workspace<small>Open source edition</small>
-            </span>
-            <button className="icon-button" title="Getting started" onClick={() => setHelp(true)}>
-              <CircleHelp size={17} />
-            </button>
-          </div>
         </div>
       </aside>
       <div className="main-shell">
@@ -592,6 +571,14 @@ export default function App() {
               <LockKeyhole size={12} />
               LOCAL FIRST
             </span>
+            <button
+              className="icon-button"
+              title="Getting started"
+              aria-label="Getting started"
+              onClick={() => setHelp(true)}
+            >
+              <CircleHelp size={17} />
+            </button>
             <div className="divider" />
             <button
               className="icon-button"
@@ -655,17 +642,11 @@ export default function App() {
                                 {status}
                               </span>
                             </div>
-                            {stream ? (
-                              <div className="markdown">
-                                <div className="stream-text">{stream}</div>
-                              </div>
-                            ) : (
-                              <div className="thinking-dots">
-                                <i />
-                                <i />
-                                <i />
-                              </div>
-                            )}
+                            <div className="thinking-dots" aria-label="Forge is working">
+                              <i />
+                              <i />
+                              <i />
+                            </div>
                           </div>
                         </article>
                       )}
@@ -674,21 +655,47 @@ export default function App() {
                   )}
                 </div>
                 <div className="composer-area">
-                  <TaskTimeline
-                    checkpoint={checkpoint}
-                    toolCount={toolCount}
-                    busy={busy}
-                    onResume={() => {
-                      if (!sessionId || busy) return;
-                      dispatchRun({ type: 'start' });
-                      void api.resume(sessionId).catch((error) => {
-                        dispatchRun({ type: 'start-failed' });
-                        notify(error);
-                      });
-                    }}
-                  />
-                  {task && (
-                    <TaskPanel task={task} sessionId={sessionId} busy={busy} onError={notify} />
+                  {(checkpoint || task) && (
+                    <details className="task-details">
+                      <summary>
+                        <Activity size={15} />
+                        <span>Task details</span>
+                        <span className="task-details-status">
+                          {busy
+                            ? status
+                            : task?.outcome === 'completed_verified'
+                              ? 'Done'
+                              : task?.outcome === 'completed_unverified'
+                                ? 'Review'
+                                : task?.outcome === 'stopped'
+                                  ? 'Paused'
+                                  : checkpoint?.phase || 'Ready'}
+                        </span>
+                      </summary>
+                      <div className="task-details-body">
+                        <TaskTimeline
+                          checkpoint={checkpoint}
+                          toolCount={toolCount}
+                          busy={busy}
+                          onResume={() => {
+                            if (!sessionId || busy) return;
+                            dispatchRun({ type: 'start' });
+                            void api.resume(sessionId).catch((error) => {
+                              dispatchRun({ type: 'start-failed' });
+                              notify(error);
+                            });
+                          }}
+                        />
+                        {task && (
+                          <TaskPanel
+                            task={task}
+                            sessionId={sessionId}
+                            busy={busy}
+                            onError={notify}
+                          />
+                        )}
+                      </div>
+                    </details>
                   )}
                   {clarification && (
                     <div
@@ -715,32 +722,47 @@ export default function App() {
                             {option.description && <span>{option.description}</span>}
                           </button>
                         ))}
-                      </div>
-                      <form
-                        className="clarification-custom"
-                        onSubmit={(event) => {
-                          event.preventDefault();
-                          void answerClarification('custom');
-                        }}
-                      >
-                        <label htmlFor="custom-answer">Or write your own answer</label>
-                        <textarea
-                          id="custom-answer"
-                          value={customAnswer}
-                          onChange={(event) => setCustomAnswer(event.target.value)}
-                          maxLength={2000}
-                          rows={2}
-                          disabled={answerPending}
-                          placeholder="Your answer…"
-                        />
                         <button
-                          type="submit"
-                          className="primary"
-                          disabled={answerPending || !customAnswer.trim()}
+                          type="button"
+                          className={customAnswerOpen ? 'is-selected' : ''}
+                          disabled={answerPending}
+                          aria-expanded={customAnswerOpen}
+                          aria-controls="custom-answer-form"
+                          onClick={() => setCustomAnswerOpen((open) => !open)}
                         >
-                          Send answer
+                          <strong>Write my own answer</strong>
+                          <span>Give Forge a different direction.</span>
                         </button>
-                      </form>
+                      </div>
+                      {customAnswerOpen && (
+                        <form
+                          id="custom-answer-form"
+                          className="clarification-custom"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            void answerClarification('custom');
+                          }}
+                        >
+                          <label htmlFor="custom-answer">Your answer</label>
+                          <textarea
+                            id="custom-answer"
+                            value={customAnswer}
+                            onChange={(event) => setCustomAnswer(event.target.value)}
+                            maxLength={2000}
+                            rows={2}
+                            disabled={answerPending}
+                            autoFocus
+                            placeholder="Tell Forge how to proceed…"
+                          />
+                          <button
+                            type="submit"
+                            className="primary"
+                            disabled={answerPending || !customAnswer.trim()}
+                          >
+                            Send answer
+                          </button>
+                        </form>
+                      )}
                     </div>
                   )}
                   {approval && (
@@ -803,6 +825,9 @@ export default function App() {
                         <VoiceInput
                           language={state.settings.speechLanguage}
                           disabled={busy}
+                          onLanguageChange={(speechLanguage) => {
+                            void saveSettings({ ...state.settings, speechLanguage });
+                          }}
                           onError={setToast}
                           onTranscript={(text) => {
                             setPrompt((current) =>
@@ -821,8 +846,10 @@ export default function App() {
                             className="send-button stop"
                             onClick={() => api.stop().catch(notify)}
                             title="Stop agent"
+                            aria-label="Stop agent"
                           >
                             <Square size={15} />
+                            <span>Stop</span>
                           </button>
                         ) : (
                           <button
@@ -830,8 +857,10 @@ export default function App() {
                             disabled={!prompt.trim()}
                             onClick={run}
                             title="Send message"
+                            aria-label="Run task"
                           >
                             <ArrowUp size={19} />
+                            <span>Run</span>
                           </button>
                         )}
                       </div>

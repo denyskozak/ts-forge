@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import type { SpeechLanguage } from '../../shared/types';
 
 type RecognitionResultEvent = Event & {
   resultIndex: number;
@@ -19,8 +20,16 @@ type LocalSpeechRecognition = EventTarget & {
 };
 type SpeechRecognitionConstructor = {
   new (): LocalSpeechRecognition;
-  available?: (options: { langs: string[]; processLocally: boolean }) => Promise<string>;
-  install?: (options: { langs: string[] }) => Promise<boolean>;
+  available?: (options: {
+    langs: string[];
+    processLocally: boolean;
+    quality?: 'dictation';
+  }) => Promise<string>;
+  install?: (options: {
+    langs: string[];
+    processLocally: boolean;
+    quality?: 'dictation';
+  }) => Promise<boolean>;
 };
 
 const speechConstructor = () =>
@@ -41,7 +50,7 @@ export function useVoiceInput({
   onTranscript,
   onError,
 }: {
-  language: 'auto' | 'ru-RU' | 'en-US';
+  language: SpeechLanguage;
   onTranscript: (text: string) => void;
   onError: (message: string) => void;
 }) {
@@ -116,19 +125,38 @@ export function useVoiceInput({
       onError('On-device speech recognition is not available in this Electron build.');
       return;
     }
-    const lang = language === 'auto' ? navigator.language || 'en-US' : language;
+    // Chromium's downloadable local pack is reliably published for en-US, while
+    // navigator.language may resolve to a regional variant such as en-GB that
+    // the embedded runtime cannot install.
+    const lang = language === 'auto' ? 'en-US' : language;
     setState('starting');
     try {
-      if (!Recognition.available)
-        throw new Error('This Chromium build cannot verify on-device speech recognition.');
-      let availability = await Recognition.available({ langs: [lang], processLocally: true });
-      if (availability === 'downloadable' && Recognition.install) {
-        const installed = await Recognition.install({ langs: [lang] });
+      let availability = Recognition.available
+        ? await Recognition.available({
+            langs: [lang],
+            processLocally: true,
+            quality: 'dictation',
+          })
+        : 'available';
+      if (['downloadable', 'downloading'].includes(availability) && Recognition.install) {
+        const installed = await Recognition.install({
+          langs: [lang],
+          processLocally: true,
+          quality: 'dictation',
+        });
         if (installed)
-          availability = await Recognition.available({ langs: [lang], processLocally: true });
+          availability = Recognition.available
+            ? await Recognition.available({
+                langs: [lang],
+                processLocally: true,
+                quality: 'dictation',
+              })
+            : 'available';
       }
       if (availability !== 'available')
-        throw new Error(`The on-device speech pack for ${lang} is ${availability}.`);
+        throw new Error(
+          `Local ${lang} dictation could not start (${availability}). The language pack may still be downloading.`,
+        );
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       const audio = new AudioContext();
       const analyser = audio.createAnalyser();

@@ -36,7 +36,9 @@ export const settingsSchema = z.object({
   maxSteps: z.number().int().min(1).max(30),
   contextTokens: z.number().int().min(4096).max(65536).default(16384),
   mapFormat: z.enum(['auto', 'compact', 'json', 'markdown']).default('auto'),
-  speechLanguage: z.enum(['auto', 'ru-RU', 'en-US']).default('auto'),
+  speechLanguage: z
+    .enum(['auto', 'en-US', 'es-ES', 'de-DE', 'fr-FR', 'pt-PT', 'it-IT', 'ru-RU', 'ja-JP', 'zh-CN'])
+    .default('auto'),
   rag: z
     .object({
       enabled: z.boolean().default(true),

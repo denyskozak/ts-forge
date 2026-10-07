@@ -46,6 +46,20 @@ export interface SshProfile {
   auth: 'system' | 'key';
   keyPath: string;
 }
+export const SPEECH_LANGUAGES = [
+  { value: 'auto', code: 'EN', label: 'English (US)' },
+  { value: 'es-ES', code: 'ES', label: 'Español' },
+  { value: 'de-DE', code: 'DE', label: 'Deutsch' },
+  { value: 'fr-FR', code: 'FR', label: 'Français' },
+  { value: 'pt-PT', code: 'PT', label: 'Português' },
+  { value: 'it-IT', code: 'IT', label: 'Italiano' },
+  { value: 'ru-RU', code: 'RU', label: 'Русский' },
+  { value: 'ja-JP', code: 'JA', label: '日本語' },
+  { value: 'zh-CN', code: 'ZH', label: '中文' },
+] as const;
+// `en-US` remains accepted for settings written by older Forge builds. The UI
+// presents both `auto` and that legacy value as the same local English option.
+export type SpeechLanguage = (typeof SPEECH_LANGUAGES)[number]['value'] | 'en-US';
 export interface Settings {
   endpoint: string;
   model: string;
@@ -54,7 +68,7 @@ export interface Settings {
   maxSteps: number;
   contextTokens: number;
   mapFormat: 'auto' | 'compact' | 'json' | 'markdown';
-  speechLanguage: 'auto' | 'ru-RU' | 'en-US';
+  speechLanguage: SpeechLanguage;
   rag: {
     enabled: boolean;
     embeddingModel: string;

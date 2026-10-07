@@ -6,7 +6,7 @@ import os from 'node:os';
 import { createServer, type RequestListener } from 'node:http';
 import { once } from 'node:events';
 import { Store } from '../electron/store';
-import { Agent } from '../electron/agent';
+import { Agent, explicitSourcePaths } from '../electron/agent';
 import { chat, testConnection } from '../electron/provider';
 import {
   hash,
@@ -18,7 +18,7 @@ import {
 } from '../electron/workspace';
 import { commitChange, undoChange, recoverInterrupted } from '../electron/changes';
 import { analyzeProject, renderMap } from '../electron/project-map';
-import { budgetMessages } from '../electron/context';
+import { budgetMessages, compactToolResultForModel } from '../electron/context';
 import { execute, cleanEnvironment } from '../electron/executor';
 import { splitDataset } from '../electron/training';
 import {
@@ -26,7 +26,14 @@ import {
   inspectMentalModel,
   selectUnderstandingFiles,
 } from '../electron/mental-model';
-import { recoverReadOnlyToolCall } from '../electron/tool-recovery';
+import {
+  isAutoInvokableReadOnlyTool,
+  normalizeToolArguments,
+  recoverForcedToolCall,
+  recoverReadOnlyToolCall,
+} from '../electron/tool-recovery';
+import { contractInputSchema } from '../shared/task';
+import { z } from 'zod';
 import { analyzeTypeScriptProject } from '../electron/typescript-project-analysis';
 import type { Change, AgentEvent, ProjectEntry } from '../shared/types';
 async function fixture() {
@@ -246,6 +253,23 @@ test('context compaction keeps complete tool groups and latest request', () => {
   assert.ok(compact.some((m) => m.content === 'CURRENT TASK'));
   assert.equal(compact.at(-1)?.content, 'latest');
   assert.ok(compact.length < messages.length);
+});
+
+test('scaffold receipts keep command status without package-manager noise in model context', () => {
+  const full = JSON.stringify({
+    template: 'r3f',
+    name: 'snake',
+    workspace: '/tmp/snake',
+    commands: [
+      { args: ['create', 'vite', '.'], exitCode: 0, output: 'download progress '.repeat(1000) },
+      { args: ['add', 'three'], exitCode: 0, output: 'dependency progress '.repeat(1000) },
+    ],
+  });
+  const compact = compactToolResultForModel('scaffold_project', full);
+  assert.match(compact, /"template":"r3f"/);
+  assert.match(compact, /"exitCode":0/);
+  assert.doesNotMatch(compact, /download progress/);
+  assert.ok(compact.length < 600);
 });
 test('every tool call receives a result, including calls beyond per-step limit', async (t) => {
   const dir = await fixture();
@@ -594,6 +618,183 @@ test('printed read-only tool JSON is recovered but mutating calls stay text', ()
     recoverReadOnlyToolCall('{"name":"write_file","parameters":{"path":"x","content":"y"}}'),
     undefined,
   );
+  assert.equal(
+    recoverReadOnlyToolCall('{"name":"plan_task","parameters":{}}')?.call.function.name,
+    'plan_task',
+  );
+  assert.equal(isAutoInvokableReadOnlyTool('inspect_scene'), true);
+  assert.equal(isAutoInvokableReadOnlyTool('write_file'), false);
+  assert.equal(isAutoInvokableReadOnlyTool('plan_task'), false);
+});
+
+test('schema-constrained repair output becomes only an advertised tool call', () => {
+  assert.deepEqual(
+    recoverForcedToolCall(
+      '{"name":"replace_text","arguments":{"path":"task.ts","oldText":"a","newText":"b"}}',
+      new Set(['replace_text']),
+    ),
+    {
+      function: {
+        name: 'replace_text',
+        arguments: { path: 'task.ts', oldText: 'a', newText: 'b' },
+      },
+    },
+  );
+  assert.equal(
+    recoverForcedToolCall('{"name":"run_shell","arguments":{}}', new Set(['replace_text'])),
+    undefined,
+  );
+  assert.equal(recoverForcedToolCall('not json', new Set(['replace_text'])), undefined);
+});
+
+test('explicit source paths survive ordinary sentence punctuation', () => {
+  assert.deepEqual(
+    explicitSourcePaths('Read World.tsx. Then change src/task.ts, and inspect app/layout.tsx?'),
+    ['World.tsx', 'src/task.ts', 'app/layout.tsx'],
+  );
+});
+
+test('local-model tool arguments are repaired only when the complete schema accepts them', () => {
+  const repaired = normalizeToolArguments(
+    'plan_task',
+    {
+      goal: 'Fix sum',
+      constraints: '["Preserve exports"]',
+      criteria: '[{"description":"Sum all values"}]',
+      requiredChecks: '[{"recipe":"typescript.check","project":"tsconfig.json","files":[]}]',
+    },
+    contractInputSchema,
+  );
+  assert.equal(repaired.repaired, true);
+  assert.deepEqual(repaired.arguments.criteria, ['Sum all values']);
+  assert.deepEqual(repaired.arguments.constraints, ['Preserve exports']);
+  assert.deepEqual(repaired.arguments.requiredChecks, [
+    { recipe: 'typescript.check', project: 'tsconfig.json', files: [] },
+  ]);
+
+  const rejected = normalizeToolArguments(
+    'plan_task',
+    {
+      goal: 'Inspect scene',
+      criteria: '["Inspect scene"]',
+      requiredChecks: '[{"recipe":"inspect_scene"}]',
+    },
+    contractInputSchema,
+  );
+  assert.equal(rejected.repaired, false);
+  assert.equal(typeof rejected.arguments.requiredChecks, 'string');
+
+  const aliasedPath = normalizeToolArguments(
+    'read_file',
+    { filePath: '/home/user/project/src/World.tsx' },
+    z.object({ path: z.string() }),
+    ['World.tsx'],
+  );
+  assert.equal(aliasedPath.repaired, true);
+  assert.deepEqual(aliasedPath.arguments, { path: 'World.tsx' });
+  assert.deepEqual(
+    normalizeToolArguments(
+      'read_file',
+      { path: '/home/user/project/task.ts' },
+      z.object({ path: z.string() }),
+      ['task.ts'],
+    ).arguments,
+    { path: 'task.ts' },
+  );
+  assert.deepEqual(
+    normalizeToolArguments(
+      'replace_text',
+      { path: 'task.ts', text: 'before', replacementText: 'after' },
+      z.object({ path: z.string(), oldText: z.string(), newText: z.string() }),
+      ['task.ts'],
+    ).arguments,
+    { path: 'task.ts', oldText: 'before', newText: 'after' },
+  );
+  const question = normalizeToolArguments(
+    'ask_user_question',
+    {
+      question: 'Which runtime should Forge support?',
+      reason: 'The choice changes the generated API.',
+      options: ['Modern', 'Legacy'],
+    },
+    z.object({
+      question: z.string(),
+      reason: z.string(),
+      options: z
+        .array(z.union([z.string(), z.object({ label: z.string(), description: z.string() })]))
+        .length(3),
+    }),
+  );
+  assert.equal(question.repaired, true);
+  assert.deepEqual(question.arguments.options, [
+    'Modern',
+    'Legacy',
+    {
+      label: 'Let Forge choose',
+      description: 'Use the safest reversible default supported by the project.',
+    },
+  ]);
+});
+
+test('agent skips a repaired plan for read-only work and continues to the answer', async (t) => {
+  const dir = await fixture();
+  const project = path.join(dir, 'project');
+  await fs.mkdir(project);
+  await fs.writeFile(path.join(project, 'index.ts'), 'export const value = 1;\n');
+  let request = 0;
+  const { server, endpoint } = await serve(async (incoming, response) => {
+    if (incoming.url === '/api/tags') return response.end('{"models":[{"name":"local","size":1}]}');
+    if (incoming.url === '/api/show') return response.end('{}');
+    for await (const _chunk of incoming) void _chunk;
+    const planning = request++ === 0;
+    response.end(
+      JSON.stringify({
+        message: planning
+          ? {
+              content: '',
+              tool_calls: [
+                {
+                  function: {
+                    name: 'plan_task',
+                    arguments: {
+                      goal: 'Inspect project',
+                      criteria: '["Describe index.ts"]',
+                      requiredChecks: '[{"recipe":"read_file","project":"index.ts"}]',
+                    },
+                  },
+                },
+              ],
+            }
+          : {
+              content: 'index.ts exports the numeric value constant.',
+            },
+        done: true,
+      }) + '\n',
+    );
+  });
+  const store = new Store(path.join(dir, 'state'));
+  await store.load();
+  t.after(async () => {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await store.close();
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+  store.value.workspacePath = project;
+  store.value.settings = {
+    ...store.value.settings,
+    endpoint,
+    model: 'local',
+    mapFormat: 'compact',
+    maxSteps: 1,
+  };
+
+  await new Agent(store, () => {}).run('Inspect index.ts and describe it. Read-only task.');
+  const receipt = store.value.sessions[0].messages.find(
+    (message) => message.role === 'tool' && message.name === 'plan_task',
+  );
+  assert.equal(JSON.parse(receipt!.content).status, 'skipped');
+  assert.match(JSON.parse(receipt!.content).reason, /read-only/);
 });
 
 test('agent executes a read-only tool printed as JSON instead of ending the turn', async (t) => {

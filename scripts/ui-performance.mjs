@@ -40,13 +40,13 @@ try {
   await page.getByRole('button', { name: 'Performance fixture', exact: true }).click();
   const history = page.locator('.message-list');
   await history.getByRole('button', { name: 'Show older messages (540)' }).waitFor();
-  assert.equal(await history.locator(':scope > article, :scope > details').count(), 60);
-  assert.equal(await history.locator('.tool-message pre').count(), 0);
+  assert.equal(await history.locator(':scope > article, :scope > .tool-result').count(), 60);
+  assert.equal(await history.locator('.tool-result pre').count(), 0);
   await history.getByRole('button', { name: 'Show older messages (540)' }).click();
-  assert.equal(await history.locator(':scope > article, :scope > details').count(), 120);
-  const tool = history.locator('.tool-message').first();
+  assert.equal(await history.locator(':scope > article, :scope > .tool-result').count(), 120);
+  const tool = history.locator('details.tool-result').first();
   await tool.locator('summary').click();
-  await tool.locator('pre').waitFor();
+  await tool.locator('.tool-result-body').waitFor();
   await page.evaluate(() => {
     window.__perf = { gaps: [], longTasks: [] };
     let last = performance.now();

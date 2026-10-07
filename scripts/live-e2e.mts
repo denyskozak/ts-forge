@@ -351,7 +351,9 @@ try {
         assert.ok(
           session.messages.some(
             (message) =>
-              message.role === 'tool' && ['read_file', 'read_files'].includes(message.name ?? ''),
+              message.role === 'tool' &&
+              ['read_file', 'read_files'].includes(message.name ?? '') &&
+              !message.content.startsWith('Tool error:'),
           ),
           'Model did not read the scene',
         );
