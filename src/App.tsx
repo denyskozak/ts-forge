@@ -213,10 +213,6 @@ export default function App() {
         ),
       }));
     }
-    if (event.type === 'approval') {
-      setRightOpen(true);
-      setRightTab('changes');
-    }
     if (event.type === 'error') {
       setToast(event.error);
     }
