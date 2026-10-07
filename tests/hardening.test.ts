@@ -622,6 +622,18 @@ test('printed read-only tool JSON is recovered but mutating calls stay text', ()
     recoverReadOnlyToolCall('{"name":"plan_task","parameters":{}}')?.call.function.name,
     'plan_task',
   );
+  const truncatedPlan = recoverReadOnlyToolCall(
+    '{"name":"plan_task","parameters":{"goal":"Wrap the snake at map edges","constraints":["Preserve unrelated user changes"],"criteria":[{"description":"Crossing an edge moves the snake to the opposite edge"}],"requiredChecks":[{"recipe":"typescript.check","project":"tsconfig.json","files":[]}]}',
+  );
+  assert.equal(truncatedPlan?.call.function.name, 'plan_task');
+  assert.equal(
+    (truncatedPlan?.call.function.arguments as { goal?: string }).goal,
+    'Wrap the snake at map edges',
+  );
+  assert.equal(
+    recoverReadOnlyToolCall('{"name":"write_file","parameters":{"path":"x","content":"y"}'),
+    undefined,
+  );
   assert.equal(isAutoInvokableReadOnlyTool('inspect_scene'), true);
   assert.equal(isAutoInvokableReadOnlyTool('write_file'), false);
   assert.equal(isAutoInvokableReadOnlyTool('plan_task'), false);

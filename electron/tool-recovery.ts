@@ -42,6 +42,38 @@ export function isAutoInvokableReadOnlyTool(name: string) {
   return AUTO_INVOKE_READ_ONLY_TOOLS.has(name);
 }
 
+function parseJsonWithMissingClosers(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    const expected: string[] = [];
+    let quoted = false;
+    let escaped = false;
+    for (const character of text) {
+      if (quoted) {
+        if (escaped) escaped = false;
+        else if (character === '\\') escaped = true;
+        else if (character === '"') quoted = false;
+        continue;
+      }
+      if (character === '"') quoted = true;
+      else if (character === '{') expected.push('}');
+      else if (character === '[') expected.push(']');
+      else if (character === '}' || character === ']') {
+        if (expected.pop() !== character) return undefined;
+      }
+    }
+    // Ollama occasionally stops one token before the final object delimiter.
+    // Repair only a small, unambiguous suffix; all other syntax still fails closed.
+    if (quoted || expected.length === 0 || expected.length > 2) return undefined;
+    try {
+      return JSON.parse(text + expected.reverse().join(''));
+    } catch {
+      return undefined;
+    }
+  }
+}
+
 /**
  * Some small local models print a safe tool envelope as their final text
  * instead of using the provider tool_calls field. Recover only the last JSON
@@ -55,12 +87,7 @@ export function recoverReadOnlyToolCall(
   const fenced = content.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```\s*$/i);
   const start = fenced?.index ?? content.lastIndexOf('\n{');
   const candidate = fenced?.[1] ?? (start >= 0 ? content.slice(start + 1).trim() : content.trim());
-  let value: unknown;
-  try {
-    value = JSON.parse(candidate);
-  } catch {
-    return undefined;
-  }
+  const value = parseJsonWithMissingClosers(candidate);
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
   const envelope = value as Record<string, unknown>;
   const name = envelope.name ?? envelope.tool;
@@ -94,7 +121,7 @@ export function recoverForcedToolCall(
     ? trimmed.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
     : trimmed;
   try {
-    const value = JSON.parse(candidate) as unknown;
+    const value = parseJsonWithMissingClosers(candidate);
     if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
     const record = value as Record<string, unknown>;
     if (

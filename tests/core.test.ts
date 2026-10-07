@@ -448,6 +448,12 @@ test('Russian build slang routes an empty R3F feature through real scaffolding',
   const prompt =
     'давай забилдим игру на r3f в 2д змейку на клавиатуре, сделай поиск по правилам игры и имплементируй их';
   assert.equal(requestsProjectChange(prompt), true);
+  assert.equal(
+    requestsProjectChange(
+      'а можешь сделать так чтоб когда змейка сталкивается с концом карты она переносилась на противоположный конец',
+    ),
+    true,
+  );
   assert.equal(scaffoldTemplateForPrompt(prompt), 'r3f');
   const root = await fixture();
   t.after(() => fs.rm(root, { recursive: true, force: true }));

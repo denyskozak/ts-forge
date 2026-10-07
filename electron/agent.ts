@@ -519,9 +519,17 @@ const wantsProjectUnderstanding = (prompt: string) =>
     prompt,
   );
 export const requestsProjectChange = (prompt: string) =>
-  /\b(fix|change|modify|implement|add|remove|refactor|write|create|build|develop|scaffold)\b|исправ|измени|добав|удали|рефактор|реализ|напиш|созда|собер|разработ|(?:за)?билд/iu.test(
+  /\b(fix|change|modify|implement|add|remove|refactor|write|create|build|develop|scaffold)\b|исправ|измени|поменя|обнов|добав|удали|рефактор|реализ|напиш|сдела|созда|собер|разработ|(?:за)?билд/iu.test(
     prompt,
   );
+const groundedTaskCriteria = (prompt: string, criteria: string[]) => {
+  const words = new Set(prompt.toLocaleLowerCase().match(/[\p{L}\p{N}]{4,}/gu) ?? []);
+  const grounded = criteria.filter((criterion) => {
+    const normalized = criterion.toLocaleLowerCase();
+    return [...words].some((word) => normalized.includes(word));
+  });
+  return grounded.length ? [...new Set(grounded)] : [prompt];
+};
 export const scaffoldTemplateForPrompt = (prompt: string): ProjectTemplate | undefined =>
   /\br3f\b|react[ -]?three|three[ .]?fiber|three\.js|змей|3d|3д/iu.test(prompt)
     ? 'r3f'
@@ -2261,13 +2269,17 @@ export class Agent {
                   );
                 const contract = schemas.plan_task.parse(call.function.arguments);
                 checkpoint.planned = true;
-                task.goal = contract.goal;
+                // The user's prompt is the durable source of intent. Small local models can
+                // corrupt or translate planning text even when the tool envelope is usable.
+                task.goal = prompt;
                 task.constraints = contract.constraints;
                 task.outOfScope = contract.outOfScope;
-                task.criteria = contract.criteria.map((description) => ({
-                  id: randomUUID(),
-                  description,
-                }));
+                task.criteria = groundedTaskCriteria(prompt, contract.criteria).map(
+                  (description) => ({
+                    id: randomUUID(),
+                    description,
+                  }),
+                );
                 task.requiredChecks = contract.requiredChecks;
                 await publishTask();
                 result = JSON.stringify(task);
