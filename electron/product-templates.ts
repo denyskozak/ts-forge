@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { ProductRecipe } from '../shared/types';
+import { storefrontQualityFiles } from './storefront-quality-template';
 
 const domain = `export type Product = { id: string; name: string; price: number; stock: number };
 export const products: Product[] = [{ id: 'desk', name: 'Studio desk', price: 12900, stock: 8 }, { id: 'lamp', name: 'Reading lamp', price: 3900, stock: 12 }];
@@ -139,21 +140,70 @@ test('identity, owner data and cart survive reopening without storing raw creden
 test('owners cannot read each other projects', () => { const database=openDatabase(':memory:'); const first=register(database,'first@example.test','first password value'); const second=register(database,'second@example.test','second password val'); persistProject(database,'Private',first.user); assert.deepEqual(listProjects(database,second.user),[]); database.close(); });
 `;
 function appSource(recipe: ProductRecipe['id'], apiBase = '') {
-  const title =
-    recipe === 'storefront'
-      ? 'Studio shop'
-      : recipe === 'dashboard'
-        ? 'Product dashboard'
-        : 'My projects';
-  const body =
-    recipe === 'storefront'
-      ? `{products.map(product => <article key={product.id}><h2>{product.name}</h2><p>{money(product.price)}</p><button disabled={!user || (cart[product.id] ?? 0) >= product.stock} onClick={() => void updateCart(product.id, (cart[product.id] ?? 0) + 1)}>Add {product.name}</button></article>)}<aside aria-live="polite">Cart total: {money(products.reduce((sum, product) => sum + product.price * (cart[product.id] ?? 0), 0))}</aside><button onClick={() => setNotice('Checkout requires a configured payment provider. No payment was made.')}>Checkout</button>`
-      : recipe === 'dashboard'
-        ? `<label>Filter products<input value={query} onChange={event => setQuery(event.target.value)} /></label><table><thead><tr><th>Product</th><th>Stock</th><th>Price</th></tr></thead><tbody>{products.filter(product=>product.name.toLowerCase().includes(query.toLowerCase())).map(product => <tr key={product.id}><td>{product.name}</td><td>{product.stock}</td><td>{money(product.price)}</td></tr>)}</tbody></table>`
-        : `<form onSubmit={event => { event.preventDefault(); void createProject(); }}><label>Project name<input required maxLength={120} value={query} onChange={event => setQuery(event.target.value)} /></label><button disabled={!user}>Create project</button></form><ul>{projects.map(project => <li key={project.id}>{project.name}</li>)}</ul>`;
-  return `'use client';\nimport { useEffect, useState } from 'react';\nimport type { Cart, Product, Project } from './domain';\nconst API=${JSON.stringify(apiBase)}; const money = (cents: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);\nasync function request(path:string, init?:RequestInit) { const response=await fetch(API+path,{...init,credentials:'include',headers:{'content-type':'application/json',...init?.headers}}); const value=await response.json(); if(!response.ok) throw new Error(value.error??'Request failed'); return value; }\nexport default function App() { const [query,setQuery]=useState(''); const [projects,setProjects]=useState<Project[]>([]); const [cart,setCart]=useState<Cart>({}); const [products,setProducts]=useState<Product[]>([]); const [notice, setNotice] = useState(''); const [user,setUser]=useState<{id:string;email:string}|null>(null); const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const load=async()=>{ const session=await request('/api/v1/me').catch(()=>({user:null})); setUser(session.user); ${recipe === 'storefront' ? "setProducts((await request('/api/v1/products')).products); if(session.user) setCart((await request('/api/v1/cart')).cart);" : recipe === 'dashboard' ? "setProducts((await request('/api/v1/products')).products);" : "if(session.user) setProjects((await request('/api/v1/projects')).projects);"} }; useEffect(()=>{void load()},[]); const authenticate=async(mode:'register'|'login')=>{try{await request('/api/v1/auth/'+mode,{method:'POST',body:JSON.stringify({email,password})});setPassword('');await load();}catch(error){setNotice((error as Error).message)}}; const createProject=async()=>{try{await request('/api/v1/projects',{method:'POST',body:JSON.stringify({name:query})});setQuery('');await load()}catch(error){setNotice((error as Error).message)}}; const updateCart=async(productId:string,quantity:number)=>{try{setCart((await request('/api/v1/cart',{method:'PUT',body:JSON.stringify({productId,quantity})})).cart)}catch(error){setNotice((error as Error).message)}}; return <main><header><small>LOCAL-FIRST PRODUCT STARTER</small><h1>${title}</h1><p>SQLite persistence and server-side sessions are active.</p></header>{user?<section><p>Signed in as {user.email}</p><button onClick={()=>void request('/api/v1/auth/logout',{method:'POST'}).then(()=>{setUser(null);setProjects([]);setCart({})})}>Sign out</button></section>:<section aria-label="Account"><label>Email<input type="email" value={email} onChange={event=>setEmail(event.target.value)} /></label><label>Password<input type="password" minLength={12} value={password} onChange={event=>setPassword(event.target.value)} /></label><button onClick={()=>void authenticate('register')}>Create account</button><button onClick={()=>void authenticate('login')}>Sign in</button></section>}${body}<p role="status">{notice}</p><footer>Identity and application data are persisted locally. Configure email verification, recovery, rate limits and deployment secrets for your environment.</footer></main>; }\n`;
+  if (recipe === 'storefront')
+    return `import { useEffect, useMemo, useState } from 'react';
+import type { Cart, Product } from './domain';
+import { cartTotal, filterCatalog } from './cart';
+const API = ${JSON.stringify(apiBase)};
+const money = (cents: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+async function request(path: string, init?: RequestInit) {
+  const response = await fetch(API + path, { ...init, credentials: 'include', headers: { 'content-type': 'application/json', ...init?.headers } });
+  const value = await response.json().catch(() => ({ error: 'Invalid server response' }));
+  if (!response.ok) throw new Error(value.error ?? 'Request failed');
+  return value;
 }
-const style = `:root { font-family: system-ui, sans-serif; color: #182133; background: #f5f7fb; } body { margin: 0; } main { max-width: 880px; margin: 48px auto; padding: 32px; background: white; border-radius: 20px; box-shadow: 0 10px 50px #1821330d; } h1 { font-size: 38px; } header { margin-bottom: 32px; } article { display: inline-block; margin: 0 16px 24px 0; padding: 24px; border: 1px solid #e0e5ef; border-radius: 12px; } button { background: #275de4; color: white; border: 0; border-radius: 8px; padding: 12px 18px; cursor: pointer; } button:disabled { opacity: .5; } input { display: block; font: inherit; padding: 12px; margin: 8px 0 16px; border: 1px solid #a8b4cc; border-radius: 8px; } th, td { padding: 16px; text-align: left; border-bottom: 1px solid #e0e5ef; } aside, footer { margin: 24px 0; } footer, small { color: #657188; } :focus-visible { outline: 3px solid #ffad33; outline-offset: 3px; } @media (max-width: 600px) { main { margin: 12px; padding: 20px; } }`;
+export default function App() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [cart, setCart] = useState<Cart>({});
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const load = async () => {
+    setLoading(true); setLoadError('');
+    try {
+      const catalog = await request('/api/v1/products');
+      setProducts(catalog.products);
+      const session = await request('/api/v1/me').catch(() => ({ user: null }));
+      setUser(session.user);
+      setCart(session.user ? (await request('/api/v1/cart')).cart : {});
+    } catch (error) { setLoadError((error as Error).message); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { void load(); }, []);
+  const authenticate = async (mode: 'register' | 'login') => {
+    setNotice('');
+    try { await request('/api/v1/auth/' + mode, { method: 'POST', body: JSON.stringify({ email, password }) }); setPassword(''); await load(); }
+    catch (error) { setNotice((error as Error).message); }
+  };
+  const updateCart = async (productId: string, quantity: number) => {
+    setNotice('');
+    try { setCart((await request('/api/v1/cart', { method: 'PUT', body: JSON.stringify({ productId, quantity }) })).cart); }
+    catch (error) { setNotice((error as Error).message); }
+  };
+  const visibleProducts = useMemo(() => filterCatalog(products, query), [products, query]);
+  const cartProducts = products.filter(product => (cart[product.id] ?? 0) > 0);
+  const total = cartTotal(products, cart);
+  return <main>
+    <header><small>LOCAL-FIRST DEMO STORE</small><h1>Studio shop</h1><p>Products and cart data are served by the Node.js API.</p></header>
+    {user ? <section aria-label="Account"><p>Signed in as {user.email}</p><button onClick={() => void request('/api/v1/auth/logout', { method: 'POST' }).then(() => { setUser(null); setCart({}); })}>Sign out</button></section> : <section aria-label="Account"><h2>Save your cart</h2><label>Email<input type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} /></label><label>Password<input type="password" autoComplete="current-password" minLength={12} value={password} onChange={event => setPassword(event.target.value)} /></label><button onClick={() => void authenticate('register')}>Create account</button><button onClick={() => void authenticate('login')}>Sign in</button></section>}
+    <section aria-label="Catalog"><h2>Products</h2><label>Search products<input value={query} onChange={event => setQuery(event.target.value)} /></label>{loading && <p role="status">Loading products…</p>}{loadError && <div role="alert"><p>{loadError}</p><button onClick={() => void load()}>Retry</button></div>}{!loading && !loadError && visibleProducts.length === 0 && <p>No products found.</p>}<div className="product-grid">{visibleProducts.map(product => <article key={product.id}><h3>{product.name}</h3><p>{money(product.price)}</p><p>{product.stock} in stock</p><button aria-label={'Add ' + product.name} disabled={!user || (cart[product.id] ?? 0) >= product.stock} onClick={() => void updateCart(product.id, (cart[product.id] ?? 0) + 1)}>Add to cart</button></article>)}</div>{!user && <p>Sign in or create an account to save a cart.</p>}</section>
+    <aside aria-label="Cart" aria-live="polite"><h2>Cart</h2>{cartProducts.length === 0 ? <p>Your cart is empty.</p> : <ul>{cartProducts.map(product => { const quantity = cart[product.id] ?? 0; return <li key={product.id}><span>{product.name} × {quantity}</span><span>{money(product.price * quantity)}</span><button aria-label={'Decrease ' + product.name} onClick={() => void updateCart(product.id, quantity - 1)}>−</button><button aria-label={'Increase ' + product.name} disabled={quantity >= product.stock} onClick={() => void updateCart(product.id, quantity + 1)}>+</button><button aria-label={'Remove ' + product.name} onClick={() => void updateCart(product.id, 0)}>Remove</button></li>; })}</ul>}<strong>Cart total: {money(total)}</strong><button disabled={!cartProducts.length} onClick={() => setNotice('Checkout requires a configured payment provider. No payment was made.')}>Checkout</button></aside>
+    <p role="status">{notice}</p><footer>This demo keeps prices as integer cents and persists authenticated carts in SQLite.</footer>
+  </main>;
+}
+`;
+  const title = recipe === 'dashboard' ? 'Product dashboard' : 'My projects';
+  const body =
+    recipe === 'dashboard'
+      ? `<label>Filter products<input value={query} onChange={event => setQuery(event.target.value)} /></label><table><thead><tr><th>Product</th><th>Stock</th><th>Price</th></tr></thead><tbody>{products.filter(product=>product.name.toLowerCase().includes(query.toLowerCase())).map(product => <tr key={product.id}><td>{product.name}</td><td>{product.stock}</td><td>{money(product.price)}</td></tr>)}</tbody></table>`
+      : `<form onSubmit={event => { event.preventDefault(); void createProject(); }}><label>Project name<input required maxLength={120} value={query} onChange={event => setQuery(event.target.value)} /></label><button disabled={!user}>Create project</button></form><ul>{projects.map(project => <li key={project.id}>{project.name}</li>)}</ul>`;
+  return `'use client';\nimport { useEffect, useState } from 'react';\nimport type { Cart, Product, Project } from './domain';\nconst API=${JSON.stringify(apiBase)}; const money = (cents: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);\nasync function request(path:string, init?:RequestInit) { const response=await fetch(API+path,{...init,credentials:'include',headers:{'content-type':'application/json',...init?.headers}}); const value=await response.json(); if(!response.ok) throw new Error(value.error??'Request failed'); return value; }\nexport default function App() { const [query,setQuery]=useState(''); const [projects,setProjects]=useState<Project[]>([]); const [cart,setCart]=useState<Cart>({}); const [products,setProducts]=useState<Product[]>([]); const [notice, setNotice] = useState(''); const [user,setUser]=useState<{id:string;email:string}|null>(null); const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const load=async()=>{ const session=await request('/api/v1/me').catch(()=>({user:null})); setUser(session.user); ${recipe === 'dashboard' ? "setProducts((await request('/api/v1/products')).products);" : "if(session.user) setProjects((await request('/api/v1/projects')).projects);"} }; useEffect(()=>{void load()},[]); const authenticate=async(mode:'register'|'login')=>{try{await request('/api/v1/auth/'+mode,{method:'POST',body:JSON.stringify({email,password})});setPassword('');await load();}catch(error){setNotice((error as Error).message)}}; const createProject=async()=>{try{await request('/api/v1/projects',{method:'POST',body:JSON.stringify({name:query})});setQuery('');await load()}catch(error){setNotice((error as Error).message)}}; const updateCart=async(productId:string,quantity:number)=>{try{setCart((await request('/api/v1/cart',{method:'PUT',body:JSON.stringify({productId,quantity})})).cart)}catch(error){setNotice((error as Error).message)}}; return <main><header><small>LOCAL-FIRST PRODUCT STARTER</small><h1>${title}</h1><p>SQLite persistence and server-side sessions are active.</p></header>{user?<section><p>Signed in as {user.email}</p><button onClick={()=>void request('/api/v1/auth/logout',{method:'POST'}).then(()=>{setUser(null);setProjects([]);setCart({})})}>Sign out</button></section>:<section aria-label="Account"><label>Email<input type="email" value={email} onChange={event=>setEmail(event.target.value)} /></label><label>Password<input type="password" minLength={12} value={password} onChange={event=>setPassword(event.target.value)} /></label><button onClick={()=>void authenticate('register')}>Create account</button><button onClick={()=>void authenticate('login')}>Sign in</button></section>}${body}<p role="status">{notice}</p><footer>Identity and application data are persisted locally. Configure email verification, recovery, rate limits and deployment secrets for your environment.</footer></main>; }\n`;
+}
+const style = `:root { font-family: system-ui, sans-serif; color: #182133; background: #f5f7fb; } * { box-sizing: border-box; } body { margin: 0; } main { max-width: 1040px; margin: 48px auto; padding: 32px; background: white; border-radius: 20px; box-shadow: 0 10px 50px #1821330d; } h1 { font-size: clamp(38px, 7vw, 64px); margin: 8px 0; } h2 { margin-top: 32px; } header { margin-bottom: 32px; } .product-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; } article { padding: 24px; border: 1px solid #e0e5ef; border-radius: 12px; } button { background: #275de4; color: white; border: 0; border-radius: 8px; padding: 12px 18px; margin: 4px; cursor: pointer; } button:disabled { opacity: .5; cursor: not-allowed; } input { display: block; width: min(100%, 420px); font: inherit; padding: 12px; margin: 8px 0 16px; border: 1px solid #a8b4cc; border-radius: 8px; } th, td { padding: 16px; text-align: left; border-bottom: 1px solid #e0e5ef; } aside { margin: 32px 0; padding: 24px; background: #f1f5ff; border-radius: 14px; } aside ul { list-style: none; padding: 0; } aside li { display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 8px; align-items: center; padding: 8px 0; } footer { margin: 24px 0; } footer, small { color: #657188; } [role="alert"] { color: #a52222; } :focus-visible { outline: 3px solid #ffad33; outline-offset: 3px; } @media (max-width: 600px) { main { margin: 12px; padding: 20px; } aside li { grid-template-columns: 1fr auto; } }`;
 const apiSource = `import type { Cart } from './domain';
 import { authenticate, login, logout, register, sessionCookie } from './auth';
 import { openDatabase } from './persistence';
@@ -165,7 +215,7 @@ export async function handle(request: Request, databasePath?: string): Promise<R
   const route = url.pathname.replace(/^\\/api(?=\\/)/, '');
   const origin=request.headers.get('origin'), allowedOrigin=process.env.APP_ORIGIN ?? url.origin;
   const cors: Record<string,string> = origin===allowedOrigin ? {'access-control-allow-origin':origin,'access-control-allow-credentials':'true','vary':'Origin'} : {};
-  const json=(value:unknown,init:ResponseInit={})=>{const headers=new Headers(init.headers);for(const [key,value] of Object.entries(cors))headers.set(key,value);return Response.json(value,{...init,headers});};
+  const json=(value:unknown,init:ResponseInit={})=>{const headers=new Headers(init.headers);for(const [key,value] of Object.entries(cors))headers.set(key,value);headers.set('x-content-type-options','nosniff');headers.set('referrer-policy','no-referrer');headers.set('cache-control','no-store');return Response.json(value,{...init,headers});};
   const input=async()=>{const declared=Number(request.headers.get('content-length')??0);if(declared>64000)throw new Error('Request body too large');const text=await request.text();if(Buffer.byteLength(text)>64000)throw new Error('Request body too large');return JSON.parse(text) as Record<string,unknown>;};
   if(request.method==='OPTIONS') { const headers=new Headers(cors); headers.set('access-control-allow-methods','GET,POST,PUT,OPTIONS'); headers.set('access-control-allow-headers','content-type,authorization,x-auth-transport'); return new Response(null,{status:204,headers}); }
   const database=openDatabase(databasePath); const token=bearerToken(request)??cookieToken(request); const principal=authenticate(database,token);
@@ -327,11 +377,15 @@ export function productFiles(recipe: ProductRecipe['id'], name: string): Record<
     );
     return files;
   }
-  const webRecipe = recipe === 'monorepo' ? 'dashboard' : recipe;
-  files['src/App.tsx'] = appSource(webRecipe, recipe === 'monorepo' ? 'http://127.0.0.1:3001' : '');
+  const webRecipe =
+    recipe === 'monorepo' ? 'dashboard' : recipe === 'storefront-react' ? 'storefront' : recipe;
+  files['src/App.tsx'] = appSource(
+    webRecipe,
+    recipe === 'monorepo' || recipe === 'storefront-react' ? 'http://127.0.0.1:3001' : '',
+  );
   files['src/style.css'] = style;
   files['tests/app.spec.ts'] =
-    `import { test, expect } from '@playwright/test';\ntest('account, persisted flow and runtime errors', async ({ page }) => { const errors: string[] = []; page.on('pageerror', error => errors.push(error.message)); await page.goto('/'); await expect(page.getByRole('heading', { level: 1 })).toBeVisible(); await page.getByLabel('Email').fill('user-'+Date.now()+'@example.test'); await page.getByLabel('Password').fill('correct horse battery'); await page.getByRole('button', { name: 'Create account' }).click(); await expect(page.getByText(/Signed in as/)).toBeVisible(); ${webRecipe === 'storefront' ? "await page.getByRole('button', { name: 'Add Reading lamp' }).click(); await expect(page.getByText('Cart total: $39.00')).toBeVisible(); await page.reload(); await expect(page.getByText('Cart total: $39.00')).toBeVisible();" : webRecipe === 'dashboard' ? "await page.getByLabel('Filter products').fill('lamp'); await expect(page.getByRole('cell', { name: 'Reading lamp' })).toBeVisible(); await expect(page.getByRole('cell', { name: 'Studio desk' })).toHaveCount(0);" : "await page.getByLabel('Project name').fill('New project'); await page.getByRole('button', { name: 'Create project' }).click(); await expect(page.getByRole('listitem')).toHaveText('New project'); await page.reload(); await expect(page.getByRole('listitem')).toHaveText('New project');"} expect(errors).toEqual([]); });\n`;
+    `import { test, expect } from '@playwright/test';\ntest('account, persisted flow and runtime errors', async ({ page }) => { const errors: string[] = []; page.on('pageerror', error => errors.push(error.message)); await page.goto('/'); await expect(page.getByRole('heading', { level: 1 })).toBeVisible(); await page.getByLabel('Email').fill('user-'+Date.now()+'@example.test'); await page.getByLabel('Password').fill('correct horse battery'); await page.getByRole('button', { name: 'Create account' }).click(); await expect(page.getByText(/Signed in as/)).toBeVisible(); ${webRecipe === 'storefront' ? "await page.getByLabel('Search products').fill('lamp'); await expect(page.getByRole('heading', { name: 'Studio desk' })).toHaveCount(0); await page.getByRole('button', { name: 'Add Reading lamp' }).click(); await page.getByRole('button', { name: 'Add Reading lamp' }).click(); await expect(page.getByText('Cart total: $78.00')).toBeVisible(); await page.getByRole('button', { name: 'Decrease Reading lamp' }).click(); await expect(page.getByText('Cart total: $39.00')).toBeVisible(); await page.reload(); await expect(page.getByText('Cart total: $39.00')).toBeVisible(); await page.getByRole('button', { name: 'Remove Reading lamp' }).click(); await expect(page.getByText('Your cart is empty.')).toBeVisible();" : webRecipe === 'dashboard' ? "await page.getByLabel('Filter products').fill('lamp'); await expect(page.getByRole('cell', { name: 'Reading lamp' })).toBeVisible(); await expect(page.getByRole('cell', { name: 'Studio desk' })).toHaveCount(0);" : "await page.getByLabel('Project name').fill('New project'); await page.getByRole('button', { name: 'Create project' }).click(); await expect(page.getByRole('listitem')).toHaveText('New project'); await page.reload(); await expect(page.getByRole('listitem')).toHaveText('New project');"} expect(errors).toEqual([]); });\n`;
   const reactDeps = { react: '^19.2.0', 'react-dom': '^19.2.0' };
   const webDev = {
     ...commonDev,
@@ -339,7 +393,7 @@ export function productFiles(recipe: ProductRecipe['id'], name: string): Record<
     '@types/react-dom': '^19.2.0',
     '@playwright/test': '^1.63.0',
   };
-  const next = recipe !== 'monorepo';
+  const next = recipe !== 'monorepo' && recipe !== 'storefront-react';
   files['playwright.config.ts'] =
     `import { defineConfig } from '@playwright/test';\nexport default defineConfig({ testDir: './tests', use: { baseURL: 'http://127.0.0.1:' + (process.env.PORT ?? '3000') }, webServer: { command: 'pnpm dev', url: 'http://127.0.0.1:' + (process.env.PORT ?? '3000'), reuseExistingServer: false, env: { DATABASE_PATH: process.env.DATABASE_PATH ?? '.forge/e2e.sqlite', APP_ORIGIN: 'http://127.0.0.1:' + (process.env.PORT ?? '3000') } } });\n`;
   if (next) {
@@ -403,11 +457,28 @@ export function productFiles(recipe: ProductRecipe['id'], name: string): Record<
     null,
     2,
   );
+  const webFiles = new Set([
+    'index.html',
+    'package.json',
+    'playwright.config.ts',
+    'src/App.tsx',
+    'src/main.tsx',
+    'src/style.css',
+    'tests/app.spec.ts',
+    'tsconfig.json',
+    'vite.config.ts',
+  ]);
   const web = Object.fromEntries(
     Object.entries(files)
-      .filter(([file]) => file !== 'README.md' && file !== '.gitignore')
+      .filter(([file]) => webFiles.has(file))
       .map(([file, source]) => [`apps/web/${file}`, source]),
   );
+  web['apps/web/src/domain.ts'] =
+    'export type Product = { id: string; name: string; price: number; stock: number };\nexport type Cart = Record<string, number>;\n';
+  web['apps/web/src/cart.ts'] =
+    "import type { Cart, Product } from './domain';\nexport const filterCatalog = (products: Product[], query: string) => products.filter(product => product.name.toLowerCase().includes(query.trim().toLowerCase()));\nexport const cartTotal = (products: Product[], cart: Cart) => products.reduce((sum, product) => sum + product.price * (cart[product.id] ?? 0), 0);\n";
+  web['apps/web/src/cart.test.ts'] =
+    "import test from 'node:test'; import assert from 'node:assert/strict'; import { cartTotal, filterCatalog } from './cart'; const products = [{ id: 'lamp', name: 'Reading lamp', price: 3900, stock: 12 }]; test('catalog filtering is case insensitive', () => assert.equal(filterCatalog(products, 'LAMP').length, 1)); test('cart totals use backend integer prices', () => assert.equal(cartTotal(products, { lamp: 2 }), 7800));\n";
   const api = productFiles('api', '@forge/api');
   for (const [file, source] of Object.entries(api))
     if (file !== '.gitignore') web[`apps/api/${file}`] = source;
@@ -451,13 +522,18 @@ export function productFiles(recipe: ProductRecipe['id'], name: string): Record<
       private: true,
       packageManager: 'pnpm@11.15.1',
       scripts: {
-        dev: 'pnpm --parallel --filter @forge/web --filter @forge/api dev',
+        dev: 'cross-env APP_ORIGIN=http://127.0.0.1:3000 pnpm --parallel --filter @forge/web --filter @forge/api dev',
         test: 'pnpm -r test',
         typecheck: 'pnpm -r typecheck',
         build: 'pnpm -r --if-present build',
         'test:e2e': 'pnpm --filter @forge/web test:e2e',
       },
-      devDependencies: { ...commonDev, '@types/react': '^19.2.0', '@types/react-dom': '^19.2.0' },
+      devDependencies: {
+        ...commonDev,
+        '@types/react': '^19.2.0',
+        '@types/react-dom': '^19.2.0',
+        'cross-env': '^10.1.0',
+      },
     },
     null,
     2,
@@ -476,6 +552,11 @@ export function productFiles(recipe: ProductRecipe['id'], name: string): Record<
   );
   web['.gitignore'] = files['.gitignore'];
   web['README.md'] = files['README.md'];
+  if (recipe === 'storefront-react') {
+    Object.assign(web, storefrontQualityFiles);
+    delete web['apps/api/src/persistence.ts'];
+    web['README.md'] += '\n## Architecture\nThe React client separates API access, orchestration hooks and UI components. The Node API separates HTTP routing, authentication and repositories. Application queries use Drizzle ORM; raw SQL is confined to the database adapter and versioned migrations.\n';
+  }
   return web;
 }
 export async function scaffoldProduct(

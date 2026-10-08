@@ -107,10 +107,19 @@ export async function resolveRecipe(
         : (await scanFiles(root, 10000)).files.filter((file) => /\.test\.[cm]?[jt]sx?$/.test(file));
       if (!tests.length || !tests.every((file) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(file)))
         throw new Error('Select real Node/tsx test files.');
-      return local('tsx', 'dist/cli.mjs', [
-        '--test',
-        ...tests.map((file) => path.join(snapshot, file)),
-      ]);
+      // The tsx CLI starts an IPC server before Node's test runner. That socket is
+      // intentionally denied by the validation sandbox on macOS. Loading tsx through
+      // Node's import hook provides the same TypeScript support without opening IPC.
+      const found = await installedBin(root, 'tsx', 'dist/loader.mjs');
+      return {
+        args: [
+          '--import',
+          found.target,
+          '--test',
+          ...tests.map((file) => path.join(snapshot, file)),
+        ],
+        reads: [found.modules],
+      };
     }
     const nativeTypeScriptTests = check.files.filter((file) => /\.(test|spec)\.ts$/.test(file));
     if (
@@ -246,7 +255,7 @@ export async function runValidation(
         recipe.args,
         snapshot,
         signal,
-        [snapshot, ...recipe.reads, path.resolve(path.dirname(process.execPath), '..')],
+        [snapshot, scratch, ...recipe.reads, path.resolve(path.dirname(process.execPath), '..')],
         [scratch],
         {
           ELECTRON_RUN_AS_NODE: '1',

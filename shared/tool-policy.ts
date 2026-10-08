@@ -46,6 +46,8 @@ export const TOOL_GROUPS = {
     'browser_select',
     'browser_scroll',
     'browser_viewport',
+    'visual_assert',
+    'browser_scenario',
     'check_local_http',
     'inspect_local_preview',
     'start_local_preview',
@@ -73,7 +75,7 @@ export const TOOL_GROUPS = {
   ],
   knowledge: ['search_local_knowledge', 'web_search'],
   native: ['inspect_native_project'],
-  scene: ['inspect_scene', 'create_r3f_game'],
+  scene: ['inspect_scene', 'create_r3f_game', 'r3f_runtime_snapshot', 'r3f_performance_profile'],
   ssh: ['ssh_profiles', 'ssh_test_connection', 'ssh_list_directory', 'ssh_upload_files'],
   maintenance: [
     'maintenance_audit',

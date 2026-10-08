@@ -253,6 +253,84 @@ export function presentToolResult(message: Message): Presentation {
         count(value.files) !== undefined ? `${count(value.files)} files` : '',
       ].filter(Boolean),
     };
+  if (name === 'r3f_runtime_snapshot') {
+    const contexts = count(value.contexts) ?? 0;
+    return {
+      ...base,
+      liveBrowser: true,
+      title: contexts ? 'R3F runtime inspected' : 'WebGL context not found',
+      summary:
+        asText(value.sceneGraph) === 'application-bridge'
+          ? 'Scene bridge and WebGL runtime captured'
+          : 'WebGL runtime captured',
+      tone: contexts ? (failures.length ? 'warning' : 'success') : 'warning',
+      icon: <Activity size={15} />,
+      metrics: [
+        `${contexts} context${contexts === 1 ? '' : 's'}`,
+        asText(value.drawCalls) !== undefined ? `${asText(value.drawCalls)} draws` : '',
+        asText(value.triangles) !== undefined ? `${asText(value.triangles)} triangles` : '',
+        asText(value.liveResources) !== undefined
+          ? `${asText(value.liveResources)} live resources`
+          : '',
+      ].filter(Boolean),
+    };
+  }
+  if (name === 'r3f_performance_profile') {
+    const captured = status === 'captured';
+    return {
+      ...base,
+      liveBrowser: true,
+      title: captured ? 'R3F performance sampled' : 'No animation frames captured',
+      summary: asText(value.durationMs) ? `${asText(value.durationMs)} ms local sample` : undefined,
+      tone: captured ? 'success' : 'warning',
+      icon: <Activity size={15} />,
+      metrics: [
+        asText(value.averageFps) !== undefined ? `${asText(value.averageFps)} FPS` : '',
+        asText(value.p95FrameMs) !== undefined ? `${asText(value.p95FrameMs)} ms p95` : '',
+        asText(value.slowFrames) !== undefined ? `${asText(value.slowFrames)} slow frames` : '',
+        asText(value.drawCalls) !== undefined ? `${asText(value.drawCalls)} draws` : '',
+      ].filter(Boolean),
+    };
+  }
+  if (name === 'visual_assert') {
+    const passed = value.passed === true;
+    return {
+      ...base,
+      liveBrowser: true,
+      title: passed ? 'Visual check passed' : 'Visual check failed',
+      summary: asText(value.expectation),
+      tone: passed ? 'success' : 'danger',
+      icon: passed ? <CheckCircle2 size={15} /> : <XCircle size={15} />,
+      metrics: [
+        value.width !== undefined && value.height !== undefined
+          ? `${asText(value.width)} × ${asText(value.height)}`
+          : '',
+        asText(value.colorVariation) !== undefined
+          ? `${asText(value.colorVariation)} variation`
+          : '',
+        asText(value.baselineDiffRatio) !== undefined
+          ? `${asText(value.baselineDiffRatio)} baseline diff`
+          : '',
+      ].filter(Boolean),
+    };
+  }
+  if (name === 'browser_scenario') {
+    const passed = value.passed === true;
+    return {
+      ...base,
+      title: passed ? 'Browser scenario passed' : 'Browser scenario failed',
+      summary: asText(value.name),
+      tone: passed ? 'success' : 'danger',
+      icon: passed ? <CheckCircle2 size={15} /> : <XCircle size={15} />,
+      metrics: [
+        asText(value.completedSteps) !== undefined && asText(value.totalSteps) !== undefined
+          ? `${asText(value.completedSteps)}/${asText(value.totalSteps)} steps`
+          : '',
+        asText(value.durationMs) !== undefined ? `${asText(value.durationMs)} ms` : '',
+        value.saved === true ? 'Saved' : '',
+      ].filter(Boolean),
+    };
+  }
   if (name.startsWith('browser_'))
     return {
       ...base,

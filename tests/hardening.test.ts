@@ -635,6 +635,8 @@ test('printed read-only tool JSON is recovered but mutating calls stay text', ()
     undefined,
   );
   assert.equal(isAutoInvokableReadOnlyTool('inspect_scene'), true);
+  assert.equal(isAutoInvokableReadOnlyTool('r3f_runtime_snapshot'), true);
+  assert.equal(isAutoInvokableReadOnlyTool('r3f_performance_profile'), true);
   assert.equal(isAutoInvokableReadOnlyTool('write_file'), false);
   assert.equal(isAutoInvokableReadOnlyTool('plan_task'), false);
 });

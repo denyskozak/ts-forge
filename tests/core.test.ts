@@ -505,3 +505,10 @@ test('Russian build slang routes an empty R3F feature through the complete game 
   assert.match(store.value.sessions[0].messages.at(-1)!.content, /no changes were applied/i);
   assert.deepEqual(await fs.readdir(project), []);
 });
+
+test('behavior-preserving refactors are recognized as project changes', () => {
+  assert.equal(
+    requestsProjectChange('Отрефактори магазин без изменения пользовательского поведения.'),
+    true,
+  );
+});

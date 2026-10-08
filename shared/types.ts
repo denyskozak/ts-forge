@@ -21,6 +21,7 @@ import {
 import type { TaskRecord, ChangeSet, ImpactReport } from './task';
 import type { TaskCheckpoint } from './checkpoint';
 import { MAINTENANCE_SKILLS, type MaintenanceSkillId } from './maintenance-skills';
+import { QUALITY_SKILLS, type QualitySkillId } from './quality-skills';
 import type { McpProfile, McpConnection } from './mcp';
 export type Page = 'agent' | 'build' | 'models' | 'skills' | 'training' | 'settings';
 export type SkillId =
@@ -35,6 +36,7 @@ export type SkillId =
   | 'mcp-workflow'
   | 'mcp-security'
   | 'ssh'
+  | QualitySkillId
   | MaintenanceSkillId
   | (typeof REQUIRED_ENGINEERING_SKILLS)[number];
 export interface SshProfile {
@@ -211,7 +213,7 @@ export interface DevelopmentProcess {
 }
 
 export interface ProductRecipe {
-  id: 'saas' | 'storefront' | 'dashboard' | 'api' | 'monorepo';
+  id: 'saas' | 'storefront' | 'storefront-react' | 'dashboard' | 'api' | 'monorepo';
   name: string;
   base: 'react' | 'next' | 'expo' | 'r3f' | 'api' | 't3';
   description: string;
@@ -428,6 +430,8 @@ export const DEFAULT_SETTINGS: Settings = {
     'typescript',
     'react',
     'react-native',
+    'code-readability',
+    'modular-design',
     ...REQUIRED_MCP_SKILLS,
     ...REQUIRED_ENGINEERING_SKILLS,
   ],
@@ -452,6 +456,7 @@ export const SKILLS: {
   tags: string[];
   required?: boolean;
 }[] = [
+  ...QUALITY_SKILLS.map((skill) => ({ ...skill, tags: [...skill.tags] })),
   ...MAINTENANCE_SKILLS.map((skill) => ({ ...skill, tags: [...skill.tags] })),
   {
     id: 'problem-solving',

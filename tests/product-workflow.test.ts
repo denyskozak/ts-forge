@@ -58,7 +58,7 @@ test('T3 product analysis maps procedures, data models, contracts and destructiv
   assert.ok(report.contracts.some((item) => item.kind === 'http-route'));
   assert.deepEqual(
     PRODUCT_RECIPES.map((item) => item.id),
-    ['saas', 'storefront', 'dashboard', 'api', 'monorepo'],
+    ['saas', 'storefront', 'storefront-react', 'dashboard', 'api', 'monorepo'],
   );
 
   const sqlite = await createDisposableSqlite(root);

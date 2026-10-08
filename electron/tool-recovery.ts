@@ -25,6 +25,8 @@ const SAFE_TEXT_RECOVERY_TOOLS = new Set([
   'package_scripts',
   'list_package_processes',
   'browser_snapshot',
+  'r3f_runtime_snapshot',
+  'r3f_performance_profile',
   'git_status',
   'git_diff',
   'git_log',

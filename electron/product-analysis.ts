@@ -28,6 +28,14 @@ export const PRODUCT_RECIPES: ProductRecipe[] = [
     checks: ['typecheck', 'identity and cart persistence tests', 'build', 'cart browser flow'],
   },
   {
+    id: 'storefront-react',
+    name: 'React storefront monorepo',
+    base: 'react',
+    description:
+      'Vite React client with a separate Node TypeScript API, shared pnpm workspace contracts, persistent catalog/cart and tested API boundaries.',
+    checks: ['recursive typecheck', 'cart and API tests', 'client build', 'cart browser flow'],
+  },
+  {
     id: 'dashboard',
     name: 'Dashboard',
     base: 'next',

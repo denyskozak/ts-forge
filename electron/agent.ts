@@ -15,6 +15,7 @@ import {
 import { phaseForTool, taskPipelineForPrompt, type TaskCheckpoint } from '../shared/checkpoint';
 import { checkpointSummary } from './task-checkpoint';
 import { maintenanceSkillsForPrompt } from '../shared/maintenance-skills';
+import { qualitySkillsForProject } from '../shared/quality-skills';
 import { scaffoldProduct } from './product-templates';
 import { databaseStatus, migrateSqlite, seedSqlite } from './database-sandbox';
 import { maintenanceAudit, dependencyReport, releaseReadiness } from './maintenance-tools';
@@ -40,10 +41,14 @@ import {
   browserSelect,
   browserScroll,
   browserViewport,
+  browserScenario,
   checkLocalHttp,
   inspectLocalPreview,
   installPnpmDependencies,
+  r3fPerformanceProfile,
+  r3fRuntimeSnapshot,
   startLocalPreview,
+  visualAssert,
 } from './project-runtime';
 import {
   discoverPackageScripts,
@@ -112,6 +117,54 @@ const editSchema = z.union([
     hash: z.string().length(64).optional(),
   }),
 ]);
+const browserScenarioStepSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('click'), selector: z.string().min(1).max(500) }),
+  z.object({
+    action: z.literal('fill'),
+    selector: z.string().min(1).max(500),
+    value: z.string().max(5000),
+  }),
+  z.object({
+    action: z.literal('press'),
+    key: z.enum([
+      'Enter',
+      'Escape',
+      'Tab',
+      'ArrowUp',
+      'ArrowDown',
+      'ArrowLeft',
+      'ArrowRight',
+      'Space',
+    ]),
+  }),
+  z.object({
+    action: z.literal('wait'),
+    selector: z.string().min(1).max(500),
+    state: z.enum(['visible', 'hidden', 'attached']).default('visible'),
+    timeoutMs: z.number().int().min(100).max(15000).default(5000),
+  }),
+  z.object({
+    action: z.literal('assert'),
+    selector: z.string().min(1).max(500),
+    condition: z.enum(['visible', 'text', 'value', 'count']),
+    expected: z.string().max(5000),
+  }),
+  z.object({
+    action: z.literal('viewport'),
+    preset: z.enum(['desktop', 'tablet', 'phone']),
+  }),
+  z.object({ action: z.literal('snapshot') }),
+  z.object({ action: z.literal('r3f_snapshot') }),
+  z.object({
+    action: z.literal('profile'),
+    durationMs: z.number().int().min(500).max(10000).default(1500),
+  }),
+  z.object({
+    action: z.literal('visual_assert'),
+    expectation: z.string().min(3).max(500),
+    selector: z.string().min(1).max(500).optional(),
+  }),
+]);
 const schemas = {
   skill_instructions: z.object({ skill: z.enum(SKILLS.map((skill) => skill.id)) }),
   enable_tool_group: z.object({
@@ -120,7 +173,7 @@ const schemas = {
     reason: z.string().min(1).max(300),
   }),
   scaffold_product: z.object({
-    recipe: z.enum(['saas', 'storefront', 'dashboard', 'api', 'monorepo']),
+    recipe: z.enum(['saas', 'storefront', 'storefront-react', 'dashboard', 'api', 'monorepo']),
     name: z.string().min(1).max(63),
   }),
   create_r3f_game: z.object({ recipe: z.enum(['snake']) }),
@@ -169,6 +222,26 @@ const schemas = {
   browser_select: z.object({ selector: z.string().min(1).max(500), value: z.string().max(500) }),
   browser_scroll: z.object({ selector: z.string().min(1).max(500) }),
   browser_viewport: z.object({ preset: z.enum(['desktop', 'tablet', 'phone']) }),
+  r3f_runtime_snapshot: z.object({}),
+  r3f_performance_profile: z.object({
+    durationMs: z.number().int().min(500).max(10000).default(2000),
+  }),
+  visual_assert: z.object({
+    expectation: z.string().min(3).max(500),
+    selector: z.string().min(1).max(500).optional(),
+    baselineScreenshot: z.string().min(1).max(1000).optional(),
+    minWidth: z.number().int().min(1).max(10000).optional(),
+    minHeight: z.number().int().min(1).max(10000).optional(),
+    minColorVariation: z.number().min(0).max(1).optional(),
+    maxDominantColorRatio: z.number().min(0).max(1).optional(),
+    maxDiffRatio: z.number().min(0).max(1).optional(),
+  }),
+  browser_scenario: z.object({
+    name: z.string().min(1).max(100),
+    steps: z.array(browserScenarioStepSchema).max(30).default([]),
+    replay: z.boolean().default(false),
+    save: z.boolean().default(true),
+  }),
   plan_task: contractInputSchema,
   apply_changeset: z.object({
     rationale: z.string().min(1).max(2000),
@@ -351,7 +424,7 @@ const descriptions: Record<keyof typeof schemas, string> = {
   enable_tool_group:
     'Load or unload one optional tool group for a concrete next action. Core cannot be unloaded. Newly loaded tools are available on the next model pass.',
   scaffold_product:
-    'Write a bundled SaaS, storefront, dashboard, API or pnpm monorepo starter with real TypeScript files and tests. Empty workspace only. Installation is separate; production integrations are explicit follow-up work.',
+    'Write a bundled SaaS, Next storefront, React + Node storefront, dashboard, API or pnpm monorepo starter with real TypeScript files and tests. Empty workspace only. Installation is separate; production integrations are explicit follow-up work.',
   create_r3f_game:
     'Create a complete reviewed React Three Fiber game feature with pure TypeScript logic, keyboard controls, styling and Node tests in an existing R3F workspace. Use recipe snake for a production-quality 2D snake starter.',
   database_status:
@@ -383,6 +456,14 @@ const descriptions: Record<keyof typeof schemas, string> = {
   browser_scroll: 'Scroll a selected element into view.',
   browser_viewport:
     'Resize the shared live browser to desktop, tablet or phone for responsive checks.',
+  r3f_runtime_snapshot:
+    'Inspect the open local WebGL runtime: canvases, contexts, renderer, draw calls, triangles, live GPU resources, context loss and browser failures. Uses an optional application bridge for semantic scene objects; never guesses them from private React internals.',
+  r3f_performance_profile:
+    'Measure a short local R3F frame sample and return FPS, p50/p95/max frame time, slow frames, draw calls and triangles. This is preview evidence, not a target-device benchmark.',
+  visual_assert:
+    'Capture the page or one selector and verify deterministic visual signals: dimensions, non-solid pixels, color variation and an optional private Forge baseline. Prose meaning is not claimed without a vision-capable local model.',
+  browser_scenario:
+    'Run up to 30 ordered local browser, assertion, R3F, profile and visual steps. Save or replay a private reusable scenario by name. Sensitive form fills can run only with save=false.',
   plan_task:
     'Define the task goal, constraints, acceptance criteria and required validation recipes before editing. User acceptance is retained by the harness. Cannot change checks after edits begin.',
   apply_changeset:
@@ -544,6 +625,18 @@ export const scaffoldTemplateForPrompt = (prompt: string): ProjectTemplate | und
             : /\breact\b|vite|фронтенд|frontend/iu.test(prompt)
               ? 'react'
               : undefined;
+export const productRecipeForPrompt = (
+  prompt: string,
+): 'storefront-react' | 'storefront' | undefined => {
+  const storefront =
+    /storefront|e[ -]?commerce|online shop|online store|интернет[ -]?магазин|магазин/iu.test(
+      prompt,
+    );
+  if (!storefront) return undefined;
+  const reactVite = /\breact\b/iu.test(prompt) && /\bvite\b/iu.test(prompt);
+  const separateNodeApi = /\bnode(?:\.js)?\b|backend|back-end|бекенд|бэкенд/iu.test(prompt);
+  return reactVite && separateNodeApi ? 'storefront-react' : 'storefront';
+};
 const scaffoldName = (root: string, template: ProjectTemplate) => {
   const normalized = path
     .basename(root)
@@ -791,6 +884,11 @@ export class Agent {
         ...REQUIRED_ENGINEERING_SKILLS,
       ]);
       maintenanceSkillsForPrompt(prompt).forEach((skill) => effectiveSkills.add(skill));
+      qualitySkillsForProject(
+        prompt,
+        map.mentalModel.frameworks.map((item) => item.name),
+        map.entries.map((item) => item.path),
+      ).forEach((skill) => effectiveSkills.add(skill));
       if (!resuming)
         initialToolGroups(
           selectToolGroups(
@@ -894,12 +992,13 @@ export class Agent {
         requestsProjectChange(prompt) && !readOnlyProjectUnderstanding;
       const explicitlyReadOnly =
         readOnlyProjectUnderstanding ||
-        /\bread[- ]only\b|only use read tools|keep (?:every|all) files? unchanged|без изменени|не (?:изменя|меня|редактиру)й|только чтени/iu.test(
-          prompt,
-        );
+        (!implementationRequested &&
+          /\bread[- ]only\b|only use read tools|keep (?:every|all) files? unchanged|без изменени|не (?:изменя|меня|редактиру)й|только чтени/iu.test(
+            prompt,
+          ));
       const previewVerificationRequested =
         (explicitlyReadOnly || implementationRequested) &&
-        /(?:pnpm\s+dev|dev(?:elopment)?\s+server|loopback|встроенн\w*\s+браузер|открой\w*\s+.*браузер|запусти\w*\s+.*проект)/iu.test(
+        /(?:pnpm\s+dev|dev(?:elopment)?\s+server|loopback|встроенн\w*\s+браузер|открой\w*\s+.*браузер|запусти\w*\s+.*(?:проект|приложен)|проверь\w*\s+.*браузер)/iu.test(
           prompt,
         );
       const successfulReceipt = (name: string) =>
@@ -941,9 +1040,24 @@ export class Agent {
         if (!successfulReceipt('browser_open')) return new Set(['browser_open']);
         if (!successfulReceipt('browser_snapshot')) return new Set(['browser_snapshot']);
         if (!hasBrowserAssertion('h1')) return new Set(['browser_assert']);
-        if (!hasBrowserAssertion('[aria-label^="Score "]')) return new Set(['browser_assert']);
-        if (!hasBrowserAssertion('canvas')) return new Set(['browser_assert']);
+        if (requestedR3fSnake && !hasBrowserAssertion('[aria-label^="Score "]'))
+          return new Set(['browser_assert']);
+        if (requestedR3fSnake && !hasBrowserAssertion('canvas')) return new Set(['browser_assert']);
+        if (requestedProductRecipe && !hasBrowserAssertion('[aria-label="Catalog"]'))
+          return new Set(['browser_assert']);
+        if (requestedProductRecipe && !hasBrowserAssertion('[aria-label="Cart"]'))
+          return new Set(['browser_assert']);
         if (!successfulReceipt('browser_screenshot')) return new Set(['browser_screenshot']);
+        if (requestedR3fSnake && !successfulReceipt('r3f_runtime_snapshot'))
+          return new Set(['r3f_runtime_snapshot']);
+        if (requestedR3fSnake && !successfulReceipt('r3f_performance_profile'))
+          return new Set(['r3f_performance_profile']);
+        if (requestedR3fSnake && !successfulReceipt('visual_assert'))
+          return new Set(['visual_assert']);
+        if (requestedR3fSnake && !successfulReceipt('browser_scenario'))
+          return new Set(['browser_scenario']);
+        if (requestedProductRecipe && !successfulReceipt('browser_scenario'))
+          return new Set(['browser_scenario']);
         return undefined;
       };
       let executionRepairs = 0;
@@ -965,8 +1079,20 @@ export class Agent {
           message.name === 'scaffold_project' &&
           !/^(?:Tool error:|Project scaffolding was declined)/i.test(message.content),
       );
+      const hasProductScaffoldReceipt = current.messages.some(
+        (message) =>
+          message.role === 'tool' &&
+          message.name === 'scaffold_product' &&
+          !/^(?:Tool error:|Product scaffolding was declined)/i.test(message.content),
+      );
+      const requestedProductRecipe =
+        emptyWorkspaceAtStart || hasProductScaffoldReceipt
+          ? productRecipeForPrompt(prompt)
+          : undefined;
       const requestedScaffold =
-        emptyWorkspaceAtStart || hasScaffoldReceipt ? scaffoldTemplateForPrompt(prompt) : undefined;
+        !requestedProductRecipe && (emptyWorkspaceAtStart || hasScaffoldReceipt)
+          ? scaffoldTemplateForPrompt(prompt)
+          : undefined;
       const requestedR3fSnake = requestedScaffold === 'r3f' && /\bsnake\b|змейк/iu.test(prompt);
       let featureEditApplied =
         current.changeSets?.some(
@@ -984,6 +1110,25 @@ export class Agent {
           project: 'tsconfig.json',
           files: ['tests/game.test.ts'],
         });
+      if (
+        requestedProductRecipe === 'storefront-react' &&
+        !task.requiredChecks.some(
+          (check) =>
+            check.recipe === 'tests.related' &&
+            check.files.includes('apps/api/src/api.test.ts'),
+        )
+      )
+        task.requiredChecks.push({
+          recipe: 'tests.related',
+          project: 'tsconfig.json',
+          files: [
+            'apps/api/src/api.test.ts',
+            'apps/api/src/domain.test.ts',
+            'apps/api/src/persistence.test.ts',
+            'apps/web/src/cart.test.ts',
+            'packages/contracts/src/index.test.ts',
+          ],
+        });
       const implementationSatisfied = () =>
         task.appliedChanges > 0 && (!requestedScaffold || featureEditApplied);
       const implementationTools = new Set([
@@ -995,6 +1140,7 @@ export class Agent {
         'list_files',
         'analyze_impact',
         'create_r3f_game',
+        'scaffold_product',
       ]);
       const needsFocusedImplementation = () =>
         checkpoint.planned &&
@@ -1016,11 +1162,13 @@ export class Agent {
           return receipt?.status === 'failed' && receipt.fingerprint === task.fingerprint;
         });
       let nextPassTools: Set<string> | undefined =
-        requestedR3fSnake && checkpoint.planned && task.appliedChanges === 0
-          ? new Set(['create_r3f_game'])
-          : needsFocusedImplementation()
-            ? implementationTools
-            : undefined;
+        requestedProductRecipe && checkpoint.planned && task.appliedChanges === 0
+          ? new Set(['scaffold_product'])
+          : requestedR3fSnake && checkpoint.planned && task.appliedChanges === 0
+            ? new Set(['create_r3f_game'])
+            : needsFocusedImplementation()
+              ? implementationTools
+              : undefined;
       let nextPassRequiresTool = Boolean(nextPassTools);
       const mentionedSourcePaths = explicitSourcePaths(prompt);
       let finishWithCurrentWork = false;
@@ -1083,19 +1231,19 @@ export class Agent {
           : needsFocusedImplementation()
             ? implementationTools
             : implementationSatisfied() &&
-                Boolean(requestedScaffold) &&
+                Boolean(requestedScaffold || requestedProductRecipe) &&
                 !successfulReceipt('install_pnpm_dependencies')
               ? new Set(['install_pnpm_dependencies'])
-            : implementationSatisfied() && pendingRequiredChecks().length
-              ? hasCurrentValidationFailure()
-                ? new Set([
-                    ...implementationTools,
-                    'run_validation',
-                    'typecheck',
-                    'discover_validation_plan',
-                  ])
-                : new Set(['run_validation', 'typecheck', 'discover_validation_plan'])
-              : undefined;
+              : implementationSatisfied() && pendingRequiredChecks().length
+                ? hasCurrentValidationFailure()
+                  ? new Set([
+                      ...implementationTools,
+                      'run_validation',
+                      'typecheck',
+                      'discover_validation_plan',
+                    ])
+                  : new Set(['run_validation', 'typecheck', 'discover_validation_plan'])
+                : undefined;
         const restriction = nextPassTools ?? focusedTools;
         const requiresTool = nextPassRequiresTool || Boolean(focusedTools);
         nextPassTools = undefined;
@@ -1224,6 +1372,24 @@ export class Agent {
         for (const call of answer.tool_calls ?? []) {
           const schema = schemas[call.function.name as keyof typeof schemas];
           if (!schema) continue;
+          if (
+            call.function.name === 'analyze_impact' &&
+            !Array.isArray(call.function.arguments.paths) &&
+            architecturePaths.length
+          )
+            call.function.arguments = {
+              ...call.function.arguments,
+              paths: architecturePaths.slice(0, 8),
+            };
+          if (
+            call.function.name === 'apply_changeset' &&
+            typeof call.function.arguments.rationale !== 'string' &&
+            Array.isArray(call.function.arguments.edits)
+          )
+            call.function.arguments = {
+              ...call.function.arguments,
+              rationale: 'Apply the requested behavior-preserving project refactor.',
+            };
           const normalized = normalizeToolArguments(
             call.function.name,
             call.function.arguments,
@@ -1231,6 +1397,36 @@ export class Agent {
             mentionedSourcePaths,
           );
           if (normalized.repaired) call.function.arguments = normalized.arguments;
+        }
+        const proposedChange = (answer.tool_calls ?? []).find(
+          (call) => call.function.name === 'apply_changeset',
+        );
+        if (proposedChange && availableNames.has('read_files')) {
+          const parsed = schemas.apply_changeset.safeParse(proposedChange.function.arguments);
+          if (parsed.success) {
+            const unreadExisting: string[] = [];
+            for (const edit of parsed.data.edits) {
+              const normalizedPath = path.normalize(edit.path);
+              if (observed.get(normalizedPath)?.full) continue;
+              try {
+                await readText(root, edit.path);
+                unreadExisting.push(edit.path);
+              } catch (error) {
+                if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+              }
+            }
+            if (unreadExisting.length) {
+              answer.content = '';
+              answer.tool_calls = [
+                {
+                  function: {
+                    name: 'read_files',
+                    arguments: { paths: unreadExisting.slice(0, 8), limit: 12000 },
+                  },
+                },
+              ];
+            }
+          }
         }
         if (previewVerificationRequested) {
           const next = previewNextTools();
@@ -1266,7 +1462,14 @@ export class Agent {
               {
                 function: {
                   name: 'browser_open',
-                  arguments: { url: urls[0] ?? 'http://localhost:5173' },
+                  arguments: {
+                    url:
+                      (requestedProductRecipe
+                        ? urls.find((url) => /:3000(?:\/|$)/.test(url))
+                        : undefined) ??
+                      urls[0] ??
+                      'http://localhost:5173',
+                  },
                 },
               },
             ];
@@ -1275,19 +1478,153 @@ export class Agent {
             answer.tool_calls = [{ function: { name: 'browser_snapshot', arguments: {} } }];
           } else if (next?.has('browser_assert')) {
             const assertion = !hasBrowserAssertion('h1')
-              ? { selector: 'h1', condition: 'text', expected: 'Neon Snake' }
-              : !hasBrowserAssertion('[aria-label^="Score "]')
+              ? {
+                  selector: 'h1',
+                  condition: requestedProductRecipe || requestedR3fSnake ? 'text' : 'visible',
+                  expected: requestedProductRecipe
+                    ? 'Studio shop'
+                    : requestedR3fSnake
+                      ? 'Neon Snake'
+                      : 'true',
+                }
+              : requestedR3fSnake && !hasBrowserAssertion('[aria-label^="Score "]')
                 ? {
                     selector: '[aria-label^="Score "]',
                     condition: 'visible',
                     expected: 'true',
                   }
-                : { selector: 'canvas', condition: 'count', expected: '1' };
+                : requestedR3fSnake
+                  ? { selector: 'canvas', condition: 'count', expected: '1' }
+                  : !hasBrowserAssertion('[aria-label="Catalog"]')
+                    ? {
+                        selector: '[aria-label="Catalog"]',
+                        condition: 'visible',
+                        expected: 'true',
+                      }
+                    : {
+                        selector: '[aria-label="Cart"]',
+                        condition: 'visible',
+                        expected: 'true',
+                      };
             answer.content = '';
             answer.tool_calls = [{ function: { name: 'browser_assert', arguments: assertion } }];
           } else if (next?.has('browser_screenshot')) {
             answer.content = '';
             answer.tool_calls = [{ function: { name: 'browser_screenshot', arguments: {} } }];
+          } else if (next?.has('r3f_runtime_snapshot')) {
+            answer.content = '';
+            answer.tool_calls = [{ function: { name: 'r3f_runtime_snapshot', arguments: {} } }];
+          } else if (next?.has('r3f_performance_profile')) {
+            answer.content = '';
+            answer.tool_calls = [
+              { function: { name: 'r3f_performance_profile', arguments: { durationMs: 2000 } } },
+            ];
+          } else if (next?.has('visual_assert')) {
+            answer.content = '';
+            answer.tool_calls = [
+              {
+                function: {
+                  name: 'visual_assert',
+                  arguments: {
+                    selector: 'canvas',
+                    expectation: 'The snake game canvas renders a visible, non-blank game frame.',
+                  },
+                },
+              },
+            ];
+          } else if (next?.has('browser_scenario')) {
+            answer.content = '';
+            answer.tool_calls = [
+              {
+                function: {
+                  name: 'browser_scenario',
+                  arguments: requestedProductRecipe
+                    ? {
+                        name: 'storefront-cart-smoke',
+                        save: false,
+                        steps: [
+                          {
+                            action: 'fill',
+                            selector: 'input[type="email"]',
+                            value: 'forge-browser@example.test',
+                          },
+                          {
+                            action: 'fill',
+                            selector: 'input[type="password"]',
+                            value: 'correct horse battery',
+                          },
+                          {
+                            action: 'click',
+                            selector: '[aria-label="Account"] button:first-of-type',
+                          },
+                          {
+                            action: 'assert',
+                            selector: '[aria-label="Account"] p',
+                            condition: 'text',
+                            expected: 'Signed in as forge-browser@example.test',
+                          },
+                          {
+                            action: 'click',
+                            selector: 'button[aria-label="Add Reading lamp"]',
+                          },
+                          {
+                            action: 'assert',
+                            selector: '[aria-label="Cart"] strong',
+                            condition: 'text',
+                            expected: 'Cart total: $39.00',
+                          },
+                          {
+                            action: 'click',
+                            selector: 'button[aria-label="Increase Reading lamp"]',
+                          },
+                          {
+                            action: 'assert',
+                            selector: '[aria-label="Cart"] strong',
+                            condition: 'text',
+                            expected: 'Cart total: $78.00',
+                          },
+                          {
+                            action: 'click',
+                            selector: 'button[aria-label="Decrease Reading lamp"]',
+                          },
+                          {
+                            action: 'click',
+                            selector: 'button[aria-label="Remove Reading lamp"]',
+                          },
+                          {
+                            action: 'assert',
+                            selector: '[aria-label="Cart"] p',
+                            condition: 'text',
+                            expected: 'Your cart is empty.',
+                          },
+                          {
+                            action: 'visual_assert',
+                            expectation: 'The storefront remains visible after the cart flow.',
+                          },
+                        ],
+                      }
+                    : {
+                        name: 'snake-runtime-smoke',
+                        save: true,
+                        steps: [
+                          {
+                            action: 'assert',
+                            selector: 'canvas',
+                            condition: 'visible',
+                            expected: 'true',
+                          },
+                          { action: 'press', key: 'ArrowUp' },
+                          { action: 'r3f_snapshot' },
+                          {
+                            action: 'visual_assert',
+                            selector: 'canvas',
+                            expectation: 'The game remains visible after keyboard input.',
+                          },
+                        ],
+                      },
+                },
+              },
+            ];
           }
         }
         if (
@@ -1322,6 +1659,27 @@ export class Agent {
           answer.content = '';
           answer.tool_calls = [
             { function: { name: 'create_r3f_game', arguments: { recipe: 'snake' } } },
+          ];
+        }
+        const requiresProductScaffold =
+          implementationRequested &&
+          requestedProductRecipe &&
+          checkpoint.planned &&
+          task.appliedChanges === 0 &&
+          availableNames.has('scaffold_product') &&
+          !this.actionDeclined;
+        if (requiresProductScaffold) {
+          answer.content = '';
+          answer.tool_calls = [
+            {
+              function: {
+                name: 'scaffold_product',
+                arguments: {
+                  recipe: requestedProductRecipe,
+                  name: scaffoldName(root, 'react'),
+                },
+              },
+            },
           ];
         }
         const requiresScaffoldFirst =
@@ -2068,6 +2426,19 @@ export class Agent {
             } else if (name === 'browser_viewport') {
               const args = schemas.browser_viewport.parse(call.function.arguments);
               result = JSON.stringify(await browserViewport(args.preset));
+            } else if (name === 'r3f_runtime_snapshot') {
+              result = JSON.stringify(await r3fRuntimeSnapshot());
+            } else if (name === 'r3f_performance_profile') {
+              const args = schemas.r3f_performance_profile.parse(call.function.arguments);
+              result = JSON.stringify(await r3fPerformanceProfile(args.durationMs, signal));
+            } else if (name === 'visual_assert') {
+              const args = schemas.visual_assert.parse(call.function.arguments);
+              result = JSON.stringify(await visualAssert(this.store.directory, args));
+            } else if (name === 'browser_scenario') {
+              const args = schemas.browser_scenario.parse(call.function.arguments);
+              result = JSON.stringify(
+                await browserScenario(this.store.directory, root, args, signal),
+              );
             } else if (name === 'git_status' || name === 'git_diff' || name === 'git_log') {
               const args =
                 name === 'git_diff' ? schemas.git_diff.parse(call.function.arguments) : undefined;
@@ -2511,7 +2882,7 @@ export class Agent {
             );
             return receipt?.status === 'passed' && receipt.fingerprint === task.fingerprint;
           });
-        if (requiredChecksPassed) {
+        if (requiredChecksPassed && !previewNextTools()) {
           await add(
             'assistant',
             `Implementation applied to the workspace. Required checks passed: ${task.requiredChecks

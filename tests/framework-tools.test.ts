@@ -56,3 +56,31 @@ test('Playwright validation only accepts selected spec files', async (t) => {
   assert.ok(recipe.args.some((arg) => arg.endsWith('/cli.js')));
   await assert.rejects(resolveRecipe(root, snapshot, scratch, { recipe: 'playwright.scenario', project: 'tsconfig.json', files: ['src/App.tsx'] }), /spec source/);
 });
+
+test('TypeScript tests use the tsx import hook without opening an IPC server', async (t) => {
+  const root = await project(t);
+  await fs.mkdir(path.join(root, 'node_modules', 'tsx', 'dist'), { recursive: true });
+  await fs.writeFile(path.join(root, 'node_modules', 'tsx', 'dist', 'loader.mjs'), '');
+  await fs.writeFile(
+    path.join(root, 'package.json'),
+    JSON.stringify({ devDependencies: { tsx: '1' } }),
+  );
+  await fs.writeFile(path.join(root, 'domain.test.ts'), 'export {};');
+  const snapshot = await fs.mkdtemp(path.join(os.tmpdir(), 'forge-snapshot-'));
+  const scratch = await fs.mkdtemp(path.join(os.tmpdir(), 'forge-scratch-'));
+  t.after(() =>
+    Promise.all([
+      fs.rm(snapshot, { recursive: true, force: true }),
+      fs.rm(scratch, { recursive: true, force: true }),
+    ]),
+  );
+  const recipe = await resolveRecipe(root, snapshot, scratch, {
+    recipe: 'tests.related',
+    project: 'tsconfig.json',
+    files: ['domain.test.ts'],
+  });
+  assert.equal(recipe.args[0], '--import');
+  assert.ok(recipe.args[1].endsWith('/tsx/dist/loader.mjs'));
+  assert.ok(recipe.args.includes('--test'));
+  assert.ok(!recipe.args.some((argument) => argument.endsWith('/tsx/dist/cli.mjs')));
+});

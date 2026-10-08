@@ -12,7 +12,7 @@ const root = await fs.mkdtemp(path.join(os.tmpdir(), 'forge-starters-e2e-'));
 const report: { recipe: string; passed: boolean; checks: string[]; error?: string }[] = [];
 const pnpm = await resolveExecutable('pnpm');
 const output = path.resolve('.forge-test-results/product-starters.json');
-const recipes = ['api', 'saas', 'storefront', 'dashboard', 'monorepo'] as const;
+const recipes = ['api', 'saas', 'storefront', 'storefront-react', 'dashboard', 'monorepo'] as const;
 const selected = process.env.FORGE_PRODUCT_RECIPES?.split(',').map((item) => item.trim());
 if (selected?.some((recipe) => !recipes.includes(recipe as (typeof recipes)[number])))
   throw new Error('FORGE_PRODUCT_RECIPES contains an unknown starter.');

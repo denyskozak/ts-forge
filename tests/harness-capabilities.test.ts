@@ -7,7 +7,7 @@ import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { allowedToolNames, selectToolGroups } from '../shared/tool-policy';
 import { Store } from '../electron/store';
-import { Agent, toolDefinitions } from '../electron/agent';
+import { Agent, productRecipeForPrompt, toolDefinitions } from '../electron/agent';
 import { budgetMessages } from '../electron/context';
 import { createAnalysisEngine } from '../electron/analysis-engine';
 import { r3fSnakeRecipe } from '../electron/r3f-recipes';
@@ -32,8 +32,23 @@ test('capability selection reduces schemas and keeps specialist tools discoverab
   assert.ok(selectToolGroups('Собери магазин и проверь в браузере').includes('browser'));
   assert.ok(selectToolGroups('Build an R3F scene').includes('scene'));
   assert.ok(allowedToolNames(['core', 'scene']).has('create_r3f_game'));
+  assert.ok(allowedToolNames(['core', 'scene']).has('r3f_runtime_snapshot'));
+  assert.ok(allowedToolNames(['core', 'scene']).has('r3f_performance_profile'));
+  assert.ok(allowedToolNames(['core', 'browser']).has('visual_assert'));
+  assert.ok(allowedToolNames(['core', 'browser']).has('browser_scenario'));
   assert.ok(selectToolGroups('Inspect current mobile project', ['Expo']).includes('native'));
   assert.ok(allowedToolNames(['core', 'knowledge'], true).has('web_search'));
+});
+
+test('explicit React and Node storefront requests select the full-stack product recipe', () => {
+  assert.equal(
+    productRecipeForPrompt(
+      'Создай интернет-магазин: React + Vite клиент и Node.js TypeScript backend API',
+    ),
+    'storefront-react',
+  );
+  assert.equal(productRecipeForPrompt('Build a storefront with Next.js'), 'storefront');
+  assert.equal(productRecipeForPrompt('Build a React calculator'), undefined);
 });
 
 test('R3F snake recipe writes complete gameplay, UI and tests without model-authored source', async (t) => {

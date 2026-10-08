@@ -8,6 +8,7 @@ import { sshProfileSchema } from './ssh';
 import { mcpProfileSchema } from '../shared/mcp';
 import { checkpointSchema } from '../shared/checkpoint';
 import { MAINTENANCE_SKILLS } from '../shared/maintenance-skills';
+import { QUALITY_SKILLS } from '../shared/quality-skills';
 export const settingsSchema = z.object({
   endpoint: z.string().transform(localEndpoint),
   model: z.string().max(200),
@@ -25,6 +26,7 @@ export const settingsSchema = z.object({
         'mcp-workflow',
         'mcp-security',
         'ssh',
+        ...QUALITY_SKILLS.map((skill) => skill.id),
         ...MAINTENANCE_SKILLS.map((skill) => skill.id),
         ...REQUIRED_ENGINEERING_SKILLS,
       ]),

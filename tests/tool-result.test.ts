@@ -115,3 +115,71 @@ test('package script discovery is presented as a read-only project result', () =
   assert.deepEqual(view.metrics, ['2 scripts']);
   assert.equal(view.tone, 'success');
 });
+
+test('R3F runtime, performance, visual and scenario receipts use compact UI cards', () => {
+  const runtime = presentToolResult(
+    tool(
+      'r3f_runtime_snapshot',
+      JSON.stringify({
+        status: 'captured',
+        contexts: [{}],
+        drawCalls: 42,
+        triangles: 128,
+        liveResources: 9,
+      }),
+    ),
+  );
+  assert.equal(runtime.title, 'R3F runtime inspected');
+  assert.deepEqual(runtime.metrics, ['1 context', '42 draws', '128 triangles', '9 live resources']);
+
+  const profile = presentToolResult(
+    tool(
+      'r3f_performance_profile',
+      JSON.stringify({
+        status: 'captured',
+        durationMs: 2000,
+        averageFps: 59.8,
+        p95FrameMs: 18.2,
+        slowFrames: 1,
+        drawCalls: 300,
+      }),
+    ),
+  );
+  assert.equal(profile.title, 'R3F performance sampled');
+  assert.deepEqual(profile.metrics, ['59.8 FPS', '18.2 ms p95', '1 slow frames', '300 draws']);
+
+  const visual = presentToolResult(
+    tool(
+      'visual_assert',
+      JSON.stringify({
+        passed: true,
+        status: 'passed',
+        expectation: 'Canvas is visible',
+        screenshot: '/private/preview.png',
+        width: 640,
+        height: 480,
+        colorVariation: 0.16,
+      }),
+    ),
+  );
+  assert.equal(visual.title, 'Visual check passed');
+  assert.equal(visual.summary, 'Canvas is visible');
+  assert.deepEqual(visual.metrics, ['640 × 480', '0.16 variation']);
+
+  const scenario = presentToolResult(
+    tool(
+      'browser_scenario',
+      JSON.stringify({
+        passed: true,
+        status: 'passed',
+        name: 'snake smoke',
+        completedSteps: 4,
+        totalSteps: 4,
+        durationMs: 700,
+        saved: true,
+      }),
+    ),
+  );
+  assert.equal(scenario.title, 'Browser scenario passed');
+  assert.deepEqual(scenario.metrics, ['4/4 steps', '700 ms', 'Saved']);
+});

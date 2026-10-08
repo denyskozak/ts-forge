@@ -29,6 +29,16 @@ export const RUNTIME_ENGINEERING_RULES: Record<string, string> = {
     'Mandatory sustainable design. Follow project conventions; prefer clear functional code, explicit boundaries and minimal dependencies. Validate inputs, enforce server authorization, protect secrets, bound resources and handle cancellation, cleanup, retries and state recovery. Inspect indexes/pagination and measure performance. Avoid speculative abstractions and report material tradeoffs.',
   'evidence-driven-testing':
     'Mandatory evidence-driven testing. Define risk-based required checks before editing. Choose unit, integration, contract, E2E, security, accessibility, migration or load checks for real risks. Add failure-path and regression tests. Execute checks on the final source fingerprint; repair failures and rerun affected checks. Do not weaken tests or infer runtime correctness from compilation alone. State unavailable checks honestly.',
+  'code-readability':
+    'Readable TypeScript. Never compress modules or control flow onto one line. Format changed files, use descriptive domain names, small focused functions and explicit errors. Remove real duplication without generic indirection. Review every changed file for human readability before delivery.',
+  'modular-design':
+    'Modular architecture. Separate domain rules, application orchestration, infrastructure adapters and UI/HTTP boundaries. Keep dependencies pointing toward domain behavior. Avoid god components, catch-all utilities, circular imports and repositories that validate requests. Preserve contracts and test important boundaries.',
+  'backend-security':
+    'Backend security. Validate every untrusted boundary, authenticate sessions and authorize each resource access. Protect cookies, CORS/CSRF, secrets, error output, request size and pagination. Add denial-path tests for anonymous, cross-user and invalid requests. Review data access and failure behavior together.',
+  'orm-data-access':
+    'Typed ORM data access. Prefer the installed ORM query builder, explicit schema, constraints, indexes and versioned migrations. Keep ORM inside infrastructure repositories and map rows to domain types. Raw SQL is restricted to migrations or one isolated adapter when the driver requires it; never interpolate values. Test persistence and migrations.',
+  'frontend-architecture':
+    'Frontend architecture. Keep page composition thin. Separate typed API client, server-state hooks, pure domain transformations and focused accessible components. Model loading, error, empty and success explicitly; cancel stale requests and avoid effects for derived state. Test pure rules, component states and the critical journey.',
   'mcp-workflow':
     'Mandatory MCP workflow. A real opt-in client supports stdio and Streamable HTTP. Discover configured servers and exact schemas with mcp_servers/connect/tools before mcp_call. Report negotiated evidence, errors and truncation. Never invent tools or results, print calls as execution, or auto-retry timed-out mutations. Built-in tools are not MCP servers.',
   'mcp-security':
