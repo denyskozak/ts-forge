@@ -22,6 +22,7 @@ import type { TaskRecord, ChangeSet, ImpactReport } from './task';
 import type { TaskCheckpoint } from './checkpoint';
 import { MAINTENANCE_SKILLS, type MaintenanceSkillId } from './maintenance-skills';
 import { QUALITY_SKILLS, type QualitySkillId } from './quality-skills';
+import { DESIGN_SKILLS, type DesignSkillId } from './design-skills';
 import type { McpProfile, McpConnection } from './mcp';
 export type Page = 'agent' | 'build' | 'models' | 'skills' | 'training' | 'settings';
 export type SkillId =
@@ -37,6 +38,7 @@ export type SkillId =
   | 'mcp-security'
   | 'ssh'
   | QualitySkillId
+  | DesignSkillId
   | MaintenanceSkillId
   | (typeof REQUIRED_ENGINEERING_SKILLS)[number];
 export interface SshProfile {
@@ -457,6 +459,7 @@ export const SKILLS: {
   required?: boolean;
 }[] = [
   ...QUALITY_SKILLS.map((skill) => ({ ...skill, tags: [...skill.tags] })),
+  ...DESIGN_SKILLS.map((skill) => ({ ...skill, tags: [...skill.tags] })),
   ...MAINTENANCE_SKILLS.map((skill) => ({ ...skill, tags: [...skill.tags] })),
   {
     id: 'problem-solving',

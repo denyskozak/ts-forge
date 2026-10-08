@@ -9,6 +9,8 @@ import {
   Map,
   CircleCheck,
   CircleAlert,
+  MessageSquare,
+  Plus,
 } from 'lucide-react';
 import { api } from './api';
 import { McpSettings } from './components/McpSettings';
@@ -17,16 +19,27 @@ import {
   type Settings,
   type ConnectionTest,
   type SshProfile,
+  type Session,
 } from '../shared/types';
 export default function SettingsPage({
   settings,
   dataPath,
   platform,
+  sessions,
+  activeSessionId,
+  busy,
+  onNewSession,
+  onOpenSession,
   onSave,
 }: {
   settings: Settings;
   dataPath: string;
   platform: string;
+  sessions: Session[];
+  activeSessionId?: string;
+  busy: boolean;
+  onNewSession: () => void;
+  onOpenSession: (session: Session) => void;
   onSave: (settings: Settings) => void;
 }) {
   const [draft, setDraft] = useState(settings),
@@ -107,9 +120,40 @@ export default function SettingsPage({
   return (
     <div className="page-inner">
       <div className="page-header">
-        <div className="eyebrow">MAKE YOURSELF AT HOME</div>
-        <h1>Your workspace, your rules.</h1>
-        <p>Connect a local model, shape its context, and keep control of your code.</p>
+        <h1>Settings</h1>
+        <p>Local models, project context and private workspace data.</p>
+      </div>
+      <div className="settings-card session-history-card">
+        <div className="settings-card-heading">
+          <div>
+            <h3>Session history</h3>
+            <p className="muted-text">Chats for the current workspace stay on this machine.</p>
+          </div>
+          <button className="button" onClick={onNewSession} disabled={busy}>
+            <Plus size={14} />
+            New chat
+          </button>
+        </div>
+        <div className="settings-session-list">
+          {sessions.length ? (
+            sessions.map((session) => (
+              <button
+                key={session.id}
+                className={session.id === activeSessionId ? 'active' : ''}
+                disabled={busy}
+                onClick={() => onOpenSession(session)}
+              >
+                <MessageSquare size={15} />
+                <span>
+                  <strong>{session.title}</strong>
+                  <small>{new Date(session.updatedAt).toLocaleString()}</small>
+                </span>
+              </button>
+            ))
+          ) : (
+            <div className="settings-session-empty">No sessions in this workspace yet.</div>
+          )}
+        </div>
       </div>
       <div className="settings-card">
         <h3>Local runtime</h3>

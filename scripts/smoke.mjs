@@ -214,7 +214,7 @@ try {
   const page = await app.firstWindow({ timeout: 20000 });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.getByText('Good ideas deserve').waitFor();
+  await page.getByText('What would you like to build?').waitFor();
   await expect(page.locator('.context-panel')).toHaveCount(0);
   assert.equal(
     await page.evaluate(() => getComputedStyle(document.documentElement).fontSize),
@@ -366,7 +366,7 @@ try {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [project] });
   }, project);
   await page.getByRole('button', { name: 'Your workspace Open a project to begin' }).click();
-  await page.getByText('Good ideas deserve').waitFor();
+  await page.getByText('What would you like to build?').waitFor();
   await page.getByRole('button', { name: 'Show context panel', exact: true }).click();
   await page.getByRole('button', { name: 'View project map' }).waitFor();
   assert.ok(

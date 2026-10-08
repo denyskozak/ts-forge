@@ -153,7 +153,7 @@ try {
     const page = await app.firstWindow({ timeout: 20000 });
     const pageErrors: string[] = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
-    await page.getByText('Good ideas deserve').waitFor();
+    await page.getByText('What would you like to build?').waitFor();
     await page.evaluate(
       async ({ endpoint, model, contextTokens }) => {
         const state = await window.forge!.state();

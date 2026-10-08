@@ -16,6 +16,7 @@ import { phaseForTool, taskPipelineForPrompt, type TaskCheckpoint } from '../sha
 import { checkpointSummary } from './task-checkpoint';
 import { maintenanceSkillsForPrompt } from '../shared/maintenance-skills';
 import { qualitySkillsForProject } from '../shared/quality-skills';
+import { designSkillsForProject } from '../shared/design-skills';
 import { scaffoldProduct } from './product-templates';
 import { databaseStatus, migrateSqlite, seedSqlite } from './database-sandbox';
 import { maintenanceAudit, dependencyReport, releaseReadiness } from './maintenance-tools';
@@ -885,6 +886,11 @@ export class Agent {
       ]);
       maintenanceSkillsForPrompt(prompt).forEach((skill) => effectiveSkills.add(skill));
       qualitySkillsForProject(
+        prompt,
+        map.mentalModel.frameworks.map((item) => item.name),
+        map.entries.map((item) => item.path),
+      ).forEach((skill) => effectiveSkills.add(skill));
+      designSkillsForProject(
         prompt,
         map.mentalModel.frameworks.map((item) => item.name),
         map.entries.map((item) => item.path),

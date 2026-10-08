@@ -12,7 +12,6 @@ import {
   FlaskConical,
   Settings2,
   ChevronDown,
-  ChevronRight,
   FolderOpen,
   PanelRightClose,
   PanelRightOpen,
@@ -421,6 +420,7 @@ export default function App() {
     () => state.sessions.filter((s) => s.workspace === state.workspace?.path),
     [state.sessions, state.workspace?.path],
   );
+  const activeSession = sessions.find((session) => session.id === sessionId);
   const activeModel = models.find((m) => m.name === state.settings.model);
   return (
     <div className="app-shell">
@@ -430,11 +430,14 @@ export default function App() {
           <div className="brand-symbol">
             <Mark small />
           </div>
-          <span className="brand-name">
-            TS <span className="brand-separator">-</span> Forge
-          </span>
-          <span className="version">ALPHA</span>
+          <span className="brand-name">TS Forge</span>
+          <ChevronDown size={14} />
         </div>
+        <button className="sidebar-new-chat" onClick={newSession} disabled={busy}>
+          <MessageSquare size={16} />
+          <span>New chat</span>
+          <kbd>⌘ N</kbd>
+        </button>
         <button
           className="project-picker"
           onClick={() =>
@@ -485,7 +488,6 @@ export default function App() {
             </button>
           </div>
         )}
-        <div className="nav-caption">BUILD</div>
         <nav>
           {NAV.map((item) => (
             <button
@@ -497,39 +499,11 @@ export default function App() {
               <span>{item.label}</span>
               {item.id === 'training' ? (
                 <span className="nav-new">LAB</span>
-              ) : item.id === 'agent' ? (
-                <kbd>⌘ K</kbd>
               ) : null}
             </button>
           ))}
         </nav>
-        <div className="session-heading">
-          <span>RECENT SESSIONS</span>
-          <button className="icon-button" title="New session" onClick={newSession} disabled={busy}>
-            <Plus size={16} />
-          </button>
-        </div>
-        <div className="session-list">
-          {sessions.length ? (
-            sessions.map((s) => (
-              <button
-                key={s.id}
-                disabled={busy}
-                className={`session-link ${sessionId === s.id ? 'selected' : ''}`}
-                onClick={() => loadSession(s)}
-              >
-                <MessageSquare size={14} />
-                <span>{s.title}</span>
-              </button>
-            ))
-          ) : (
-            <div className="session-empty">
-              <span className="tiny-dot" />A little quiet here.
-              <br />
-              <span>Your next idea starts a session.</span>
-            </div>
-          )}
-        </div>
+        <div className="sidebar-spacer" />
         <div className="sidebar-bottom">
           <button
             className={`nav-item ${page === 'settings' ? 'active' : ''}`}
@@ -543,11 +517,10 @@ export default function App() {
       <div className="main-shell">
         <header className="topbar">
           <div className="breadcrumbs">
-            <span>Personal</span>
-            <ChevronRight size={13} />
+            <FolderOpen size={15} />
             <strong>
               {page === 'agent'
-                ? 'Workspace'
+                ? activeSession?.title || state.workspace?.name || 'New chat'
                 : page === 'build'
                   ? 'Build loop'
                   : page === 'training'
@@ -558,9 +531,6 @@ export default function App() {
                         ? 'Skills'
                         : 'Settings'}
             </strong>
-            {page === 'agent' && (
-              <span className="session-label">{sessionId ? 'Session' : 'New session'}</span>
-            )}
           </div>
           <div className="top-actions">
             <span className="local-label">
@@ -592,16 +562,6 @@ export default function App() {
           <main className={`main-content ${page === 'agent' ? 'agent-content' : ''}`}>
             {page === 'agent' ? (
               <>
-                <div className="session-toolbar">
-                  <div>
-                    <span className="tiny-dot orange" />{' '}
-                    {busy ? status : 'A space to build something great'}
-                  </div>
-                  <button onClick={newSession} disabled={busy}>
-                    <Plus size={14} />
-                    New session
-                  </button>
-                </div>
                 <div
                   className="conversation"
                   onScroll={(e) => {
@@ -612,10 +572,7 @@ export default function App() {
                 >
                   {!messages.length && !busy ? (
                     <div className="welcome">
-                      <h1>
-                        Good ideas deserve
-                        <br />a <span>great build partner.</span>
-                      </h1>
+                      <h1>What would you like to build?</h1>
                     </div>
                   ) : (
                     <div className="message-list">
@@ -1080,6 +1037,11 @@ export default function App() {
                 settings={state.settings}
                 dataPath={state.dataPath}
                 platform={state.platform}
+                sessions={sessions}
+                activeSessionId={sessionId}
+                busy={busy}
+                onNewSession={newSession}
+                onOpenSession={loadSession}
                 onSave={async (value) => {
                   if (await saveSettings(value)) {
                     setToast('Settings saved locally.');
