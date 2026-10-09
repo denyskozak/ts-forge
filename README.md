@@ -5,7 +5,7 @@
 <h1 align="center">TS Forge</h1>
 
 <p align="center">
-  <strong>A private, local-first coding agent built for TypeScript.</strong><br />
+  <strong>A free, private, local-first coding agent built for TypeScript.</strong><br />
   Understand the project, discuss critical choices, review every change, and keep the entire workflow on your Mac.
 </p>
 
